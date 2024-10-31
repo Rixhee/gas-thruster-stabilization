@@ -14,7 +14,7 @@ float dt = 0.01;
 float kp = 0.5;
 float ki = 0.1;
 float kd = 0.1;
-s
+
 float pitch = 0;
 float accelPitch;
 float gyroRate;
@@ -42,17 +42,17 @@ void setup() {
   pinMode(thruster2, OUTPUT);
 }
 
-float calculateError(float pitch) {
-  if (pitch > 0) {
-    error = 1;
-  } else if (pitch < 0) {
-    error = -1;
-  } else {
-    error = 0;
-  }
-
-  return error;
-}
+//float calculateError(float pitch) {
+//  if (pitch > 0) {
+//    error = 1;
+//  } else if (pitch < 0) {
+//    error = -1;
+//  } else {
+//    error = 0;
+//  }
+//
+//  return error;
+//}
 
 void thrustControl(float correction) {
   if (correction == 0) {
