@@ -1,32 +1,51 @@
 #include <Wire.h>
+#include <MPU6050.h>
 
-const int imuPin = ;
-const int thruster1 = ;
-const int thruster2 = ;
+MPU6050 imu;
+
+const int imuPin = A0;
+const int thruster1 = A1;
+const int thruster2 = A2;
+
+float gyroWeight = 0.98;
+float dt = 0.01;
 
 // PID variables
-float kp = 0;
-float ki = 0;
-float kd = 0;
+float kp = 0.5;
+float ki = 0.1;
+float kd = 0.1;
+s
+float pitch = 0;
+float accelPitch;
+float gyroRate;
 
-float imu_sense = 0;
 float error = 0;
 float previousError = 0;
 float integral = 0;
 float derivative = 0;
 
-unsigned long previous_time = 0
+unsigned long previous_time = 0;
 
 void setup() {
   Serial.begin(9600);
+
+  Wire.begin();
+  imu.initialize(); 
+
+  if (imu.testConnection()) {
+        Serial.println("MPU6050 connection successful");
+    } else {
+        Serial.println("MPU6050 connection failed");
+    }
+  
   pinMode(thruster1, OUTPUT);
   pinMode(thruster2, OUTPUT);
 }
 
-float calculateError() {
-  if (imu_sense > 0) {
+float calculateError(float pitch) {
+  if (pitch > 0) {
     error = 1;
-  } else if (imu_sense < 0) {
+  } else if (pitch < 0) {
     error = -1;
   } else {
     error = 0;
@@ -35,13 +54,7 @@ float calculateError() {
   return error;
 }
 
-void loop() {
-  error = calculateError();
-  integral += error;
-  derivative = error - previousError;
-
-  float correction = kp*error + ki*integral + kd*derivative;
-
+void thrustControl(float correction) {
   if (correction == 0) {
     digitalWrite(thruster1, LOW);
     digitalWrite(thruster2, LOW);
@@ -65,5 +78,25 @@ void loop() {
     }
   }
 
+}
+
+void loop() {
+
+  int16_t ax, ay, az, gx, gy, gz;
+  imu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+
+  accelPitch = atan2(ay, az) * 180/PI;
+  gyroRate = gx/131.0;
+
+  pitch = gyroWeight*(pitch + gyroRate/dt) + (1-gyroWeight)*accelPitch;
+  
+  error = pitch/90;
+  integral += error;
+  derivative = error - previousError;
+
+  float correction = kp*error + ki*integral + kd*derivative;
+
+  thrustControl(correction);
+  
   previousError = error;
 }
