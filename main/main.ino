@@ -1,45 +1,33 @@
-#include <Wire.h>
-#include <MPU6050.h>
+#include "imu_functions.h"
 
-MPU6050 imu;
-
-const int imuPin = A0;
-const int thruster1 = A1;
-const int thruster2 = A2;
-
-float gyroWeight = 0.98;
-float dt = 0.01;
+const int thrusterFront = A1;
+const int thrusterBack = A2;
 
 // PID variables
-float kp = 0.5;
+float kp = 100;
 float ki = 0.1;
 float kd = 0.1;
 
+float yaw = 0;
 float pitch = 0;
-float accelPitch;
-float gyroRate;
+float roll = 0;
 
 float error = 0;
 float previousError = 0;
 float integral = 0;
 float derivative = 0;
 
+const unsigned long dt = 100;
+
 unsigned long previous_time = 0;
 
 void setup() {
   Serial.begin(9600);
 
-  Wire.begin();
-  imu.initialize(); 
-
-  if (imu.testConnection()) {
-        Serial.println("MPU6050 connection successful");
-    } else {
-        Serial.println("MPU6050 connection failed");
-    }
+  setupIMU();
   
-  pinMode(thruster1, OUTPUT);
-  pinMode(thruster2, OUTPUT);
+  pinMode(thrusterFront, OUTPUT);
+  pinMode(thrusterBack, OUTPUT);
 }
 
 //float calculateError(float pitch) {
@@ -55,26 +43,26 @@ void setup() {
 //}
 
 void thrustControl(float correction) {
-  if (correction == 0) {
-    digitalWrite(thruster1, LOW);
-    digitalWrite(thruster2, LOW);
+  if (correction == 0 || pitch == 0) {
+    digitalWrite(thrusterFront, LOW);
+    digitalWrite(thrusterBack, LOW);
   } else {
     unsigned long current_time = millis();
-    if (digitalRead(thruster1) == LOW && digitalRead(thruster2) == LOW) {
+    if (digitalRead(thrusterFront) == LOW && digitalRead(thrusterBack) == LOW) {
       previous_time = current_time;
     } 
 
     if (current_time - previous_time < abs(correction)) {
-      if (error < 0) {
-        digitalWrite(thruster1, HIGH);
-        digitalWrite(thruster2, LOW);
+      if (error > 0) {
+        digitalWrite(thrusterFront, HIGH);
+        digitalWrite(thrusterBack, LOW);
       } else {
-        digitalWrite(thruster2, HIGH);
-        digitalWrite(thruster1, LOW);
+        digitalWrite(thrusterBack, HIGH);
+        digitalWrite(thrusterFront, LOW);
       }
     } else {
-      digitalWrite(thruster1, LOW);
-      digitalWrite(thruster2, LOW);
+      digitalWrite(thrusterFront, LOW);
+      digitalWrite(thrusterBack, LOW);
     }
   }
 
@@ -82,21 +70,28 @@ void thrustControl(float correction) {
 
 void loop() {
 
-  int16_t ax, ay, az, gx, gy, gz;
-  imu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+  loopIMU();
 
-  accelPitch = atan2(ay, az) * 180/PI;
-  gyroRate = gx/131.0;
+  float* yprValues = getYPR();
 
-  pitch = gyroWeight*(pitch + gyroRate/dt) + (1-gyroWeight)*accelPitch;
+  yaw = yprValues[0];
+  pitch = yprValues[1];
+  roll = yprValues[2];
   
-  error = pitch/90;
+  error = pitch;
   integral += error;
-  derivative = error - previousError;
+  derivative = (error - previousError)/(dt);
 
   float correction = kp*error + ki*integral + kd*derivative;
 
   thrustControl(correction);
   
+  Serial.print("Pitch: ");
+  Serial.print(pitch);
+  Serial.print(", Correction: ");
+  Serial.println(correction);
+  
   previousError = error;
+
+  delay(dt);
 }
