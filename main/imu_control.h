@@ -5,13 +5,18 @@
 #include <MPU6050.h>
 #include "thrust_control.h"
 
+// Initialize the MPU6050 object
 MPU6050 imu;
-const int imuPin = A0, thruster1 = A1, thruster2 = A2;
-float gyroWeight = 0.98, dt = 0.01;
+
+// Thruster pins for four-thruster setup
+const int thruster1 = A1, thruster2 = A2, thruster3 = A3, thruster4 = A4;
+
+// PID constants and state variables for each axis
 float kp = 0.5, ki = 0.1, kd = 0.1;
-float pitch = 0, accelPitch, gyroRate, error = 0, previousError = 0;
-float integral = 0, derivative = 0;
-unsigned long previous_time = 0;
+float pitchError = 0, rollError = 0, yawError = 0;
+float previousPitchError = 0, previousRollError = 0, previousYawError = 0;
+float pitchIntegral = 0, rollIntegral = 0, yawIntegral = 0;
+float pitchCorrection = 0, rollCorrection = 0, yawCorrection = 0;
 
 void setupIMU() {
     Serial.begin(9600);
@@ -23,37 +28,32 @@ void setupIMU() {
 
     pinMode(thruster1, OUTPUT);
     pinMode(thruster2, OUTPUT);
+    pinMode(thruster3, OUTPUT);
+    pinMode(thruster4, OUTPUT);
 }
 
-void updateIMU() {
-    int16_t ax, ay, az, gx, gy, gz;
-    imu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+// Simulate IMU readings for pitch, roll, and yaw
+void simulateIMUInput(float simPitch, float simRoll, float simYaw) {
+    // Pitch control
+    pitchError = simPitch / 90;
+    pitchIntegral += pitchError;
+    pitchCorrection = kp * pitchError + ki * pitchIntegral + kd * (pitchError - previousPitchError);
+    previousPitchError = pitchError;
 
-    accelPitch = atan2(ay, az) * 180 / PI;
-    gyroRate = gx / 131.0;
-    pitch = gyroWeight * (pitch + gyroRate / dt) + (1 - gyroWeight) * accelPitch;
+    // Roll control
+    rollError = simRoll / 90;
+    rollIntegral += rollError;
+    rollCorrection = kp * rollError + ki * rollIntegral + kd * (rollError - previousRollError);
+    previousRollError = rollError;
 
-    error = pitch / 90;
-    integral += error;
-    derivative = error - previousError;
+    // Yaw control
+    yawError = simYaw / 90;
+    yawIntegral += yawError;
+    yawCorrection = kp * yawError + ki * yawIntegral + kd * (yawError - previousYawError);
+    previousYawError = yawError;
 
-    float correction = kp * error + ki * integral + kd * derivative;
-    thrustControl(correction);
-
-    previousError = error;
+    // Apply corrections through thrust control
+    thrustControl(pitchCorrection, rollCorrection, yawCorrection);
 }
-
-//  V---- uncomment if using ----V   ¯\_(ツ)_/¯ 
-
-// float calculateError(float pitch) {
-//     if (pitch > 0) {
-//         error = 1;
-//     } else if (pitch < 0) {
-//         error = -1;
-//     } else {
-//         error = 0;
-//     }
-//     return error;
-// }
 
 #endif
