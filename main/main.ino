@@ -1,7 +1,7 @@
 #include "imu_functions.h"
 
-const int thrusterFront = A1;
-const int thrusterBack = A2;
+const int thrusterFront = 12;
+const int thrusterBack = 13;
 
 // PID variables
 float kp = 100;
@@ -77,6 +77,13 @@ void loop() {
   yaw = yprValues[0];
   pitch = yprValues[1];
   roll = yprValues[2];
+
+  Serial.print("Yaw: ");
+  Serial.print(yaw);
+  Serial.print(", Pitch: ");
+  Serial.print(pitch);
+  Serial.print(", Roll: ");
+  Serial.println(roll);
   
   error = pitch;
   integral += error;
@@ -86,10 +93,10 @@ void loop() {
 
   thrustControl(correction);
   
-  Serial.print("Pitch: ");
-  Serial.print(pitch);
-  Serial.print(", Correction: ");
-  Serial.println(correction);
+//  Serial.print("Pitch: ");
+//  Serial.print(pitch);
+//  Serial.print(", Correction: ");
+//  Serial.println(correction);
   
   previousError = error;
 
