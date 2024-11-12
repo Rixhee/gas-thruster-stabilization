@@ -19,7 +19,7 @@ class SeeSawSimulator:
         # Thruster properties
         self.left_thrust = 0   # Thrust force in Newtons (from PSI)
         self.right_thrust = 0
-        self.thrust_point = self.length-.5  # Distance from center where thrusters are mounted (meters)
+        self.thrust_point = self.length  # Distance from center where thrusters are mounted (meters)
         
         # For IMU-like readings
         self.yaw = 0  # 0 since we're only simulating 2D motion
@@ -97,7 +97,7 @@ class SeeSawSimulator:
         
     # IMU-like getter functions
     def get_ypr(self):
-        """Get Yaw, Pitch, Roll values (similar to your IMU)"""
+        """Get Yaw, Pitch, Roll values (similar to IMU)"""
         return [self.yaw, self.pitch, self.roll]
     
     def get_motion_data(self):
