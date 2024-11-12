@@ -1,8 +1,6 @@
 # seesaw.py
 import math
 
-thresh = .2
-
 class SeeSawSimulator:
     _instance = None
     
@@ -31,7 +29,7 @@ class SeeSawSimulator:
         # 1 PSI ≈ 6.89476 kPa
         # Force = Pressure * Area (assuming 1 square inch nozzle)
         # 1 square inch = 0.00064516 square meters
-        return (psi * 6.89476 * 0.00064516 * 1000) / 300  # Convert to Newtons
+        return psi * 6.89476 * 0.00064516 * 1000  # Convert to Newtons
         
     def calculate_damping(self):
         velocity_factor = abs(self.angular_velocity) * 0.1
@@ -88,7 +86,7 @@ class SeeSawSimulator:
         self.pitch = self.angle
             
     def is_stable(self):
-        return abs(self.angle) < thresh and abs(self.angular_velocity) < thresh
+        return abs(self.angle) < 0.1 and abs(self.angular_velocity) < 0.1
     
     def apply_thrust(self, left_psi=0, right_psi=0):
         """Apply thrust to the seesaw (in PSI)"""
@@ -120,52 +118,42 @@ def get_simulated_angle(max_steps=300, left_thrust=0, right_thrust=0):
     if not simulator.is_stable() and max_steps > 0:
         simulator.apply_thrust(left_thrust, right_thrust)
         simulator.update()
-    return simulator.angle, simulator
+    return simulator.angle
 
 def reset_seesaw(initial_angle=0, speed=1):
     SeeSawSimulator._instance = SeeSawSimulator(initial_angle, speed=speed)
     return SeeSawSimulator._instance.angle
 
-psi = 60
+import time
 
-# Thrust control function
-def thrust_control(correction: float):
-    if correction == 0:
-        return (0, 0)  # Both thrusters off
-    elif correction > 0:
-        return (psi, 0)  # Left thruster on, right off
+def run_simulation(initial_angle):
+    simulator = SeeSawSimulator(initial_angle)
+    
+    print(f"Starting simulation with initial angle: {initial_angle}°")
+    print("Time(s) | Angle(°)")
+    print("-" * 20)
+    
+    maxSteps = 300
+    while not simulator.is_stable():
+        print(f"{maxSteps:6.2f} | {simulator.angle:6.1f}")
+        
+        if maxSteps <= 0:  # Check if stable after 1 second
+            print("\nSimulation complete, max steps reached..")
+            break
+            
+        simulator.update()
+        maxSteps -= 1
+        time.sleep(0)
+    print("\nSeesaw has stabilized!")    
+    
+# Usage
+if __name__ == "__main__":
+    initial_angle = float(input("Enter initial angle (-50 to 50 degrees): "))
+    if -50 <= initial_angle <= 50:
+        run_simulation(initial_angle)
     else:
-        return (0, psi)  # Right thruster on, left off
-
-# Correction function (PID control)
-def calculate_correction(pitch: float, previous_error: float, integral: float, dt: float, kp: float, ki: float, kd: float):
-    error = pitch  # The error is simply the current pitch angle
-    integral += error * dt  # Integral is the sum of all past errors over time
-    derivative = (error - previous_error) / dt  # Derivative is the rate of change of the error
-    correction = kp * error + ki * integral + kd * derivative
-    return correction, error, integral  # Return the correction and updated error and integral for the next loop
-
-# PID Constants
-kp = 100
-ki = 0.1
-kd = 0.1
-
-# Initialize variables
-previous_error = 0
-integral = 0
-dt = 0.1 
-
-pitch = 10
-
-# Calculate the correction using PID
-correction, previous_error, integral = calculate_correction(pitch, previous_error, integral, dt, kp, ki, kd)
-
-# Control the thrusters based on the correction value
-left_thrust, right_thrust = thrust_control(correction)
-
-# Print the thrust control results
-print(f"Left Thrust: {left_thrust}, Right Thrust: {right_thrust}")
-
+        print("Please enter an angle between -50 and 50 degrees.")
+        
 # app.py
 import numpy as np
 import dash
@@ -175,7 +163,7 @@ import plotly.graph_objs as go
 
 # Initialize the app
 app = dash.Dash(__name__)
-graphid = "thrust-graph"
+graphid = "seesaw-graph"
 
 # Create a layout with a graph, interval, and controls
 app.layout = html.Div([
@@ -212,7 +200,7 @@ app.layout = html.Div([
         ]),
     ], style={'margin': '10px'}),
     
-    dcc.Graph(id=graphid),
+    dcc.Graph(id='graphid'),
     dcc.Interval(
         id='update-interval',
         interval=20,  # Update every Xms
@@ -226,44 +214,19 @@ app.layout = html.Div([
     Input('left-thrust', 'value'),
     Input('right-thrust', 'value')
 )
-
 def update_seesaw_graph(n, left_thrust, right_thrust):
-    global previous_error, pitch, integral
-    if not previous_error:
-        previous_error = 0
-    if not pitch:
-        pitch = 0
-    if not integral:
-        integral = 0
-    # Set PID constants
-    kp = 100
-    ki = 0.1
-    kd = 0.1
-    dt = 0.1  # Time step, for example 100ms
-
-    # # Simulate the current pitch angle (can be fetched from the simulation or IMU)
-    # pitch = float(simulator.get_ypr[1] or 0)
-
-    # Calculate the correction using PID control
-    correction, previous_error, integral = calculate_correction(pitch, previous_error, integral, dt, kp, ki, kd)
-
-    # Get the left and right thrust values based on the correction
-    left_thrust, right_thrust = thrust_control(correction)
-
-    # Get the updated angle from seesaw simulator
-    angle, simulator = get_simulated_angle(
-        left_thrust=left_thrust,
-        right_thrust=right_thrust
+    # Get the current angle from seesaw simulator
+    angle = get_simulated_angle(
+        left_thrust=float(left_thrust or 0),
+        right_thrust=float(right_thrust or 0)
     )
     
-    pitch = simulator.get_ypr()[1]
-    
-    # Calculate the endpoints of the seesaw
+    # Calculate endpoints of the seesaw
     length = 100
-    x_values = [-length / 2, length / 2]
-    y_values = [-np.tan(np.radians(angle)) * length / 2,
-                np.tan(np.radians(angle)) * length / 2]
-
+    x_values = [-length/2, length/2]
+    y_values = [-np.tan(np.radians(angle)) * length/2, 
+                np.tan(np.radians(angle)) * length/2]
+    
     traces = [
         # Seesaw beam
         go.Scatter(
@@ -283,38 +246,38 @@ def update_seesaw_graph(n, left_thrust, right_thrust):
         ),
         # Angle indicator
         go.Scatter(
-            x=[length / 2],
-            y=[np.tan(np.radians(angle)) * length / 2],
+            x=[length/2],
+            y=[np.tan(np.radians(angle)) * length/2],
             mode='text',
             text=[f'Angle: {angle:.1f}°'],
             textposition='top right',
             name='Angle'
         )
     ]
-
+    
     # Add thruster indicators if active
     if left_thrust:
         traces.append(go.Scatter(
-            x=[-length / 2],
-            y=[-np.tan(np.radians(angle)) * length / 2],
+            x=[-length/2],
+            y=[-np.tan(np.radians(angle)) * length/2],
             mode='markers+text',
             marker=dict(size=10, color='orange'),
             text=[f'↑\n{left_thrust} PSI'],
             textposition='bottom center',
             name='Left Thruster'
         ))
-
+    
     if right_thrust:
         traces.append(go.Scatter(
-            x=[length / 2],
-            y=[np.tan(np.radians(angle)) * length / 2],
+            x=[length/2],
+            y=[np.tan(np.radians(angle)) * length/2],
             mode='markers+text',
             marker=dict(size=10, color='orange'),
             text=[f'↑\n{right_thrust} PSI'],
             textposition='bottom center',
             name='Right Thruster'
         ))
-
+    
     layout = go.Layout(
         xaxis=dict(
             range=[-length, length],
@@ -332,9 +295,8 @@ def update_seesaw_graph(n, left_thrust, right_thrust):
         showlegend=False,
         margin=dict(l=40, r=40, t=40, b=40)
     )
-
+    
     return {'data': traces, 'layout': layout}
-
 
 @app.callback(
     Output('update-interval', 'n_intervals'),
