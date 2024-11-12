@@ -2,53 +2,43 @@
 #define SIMULATE_TEST_H
 
 #include "imu_control.h"
-#include "thrust_control.h"
 
-float simulatedPitch = 0;  // Simulated pitch value for testing
-float testCorrection = 0;  // Correction output for test
-bool isStable = false;     // Track if "balance" is achieved
-
-const float targetPitch = 0;      // Target pitch angle for "balance"
-const float tolerance = 5.0;      // Degrees tolerance for acceptable balance
-
+// Initialize the test simulation environment
 void setupSimulation() {
     Serial.begin(9600);
-    Serial.println("Simulation started: Balancing see-saw test");
+    Serial.println("Simulation started for 4-thruster balance test");
 }
 
-void simulatePitchInput() {
-    // a simulated pitch oscillation to represent a tilting "see-saw"
-    simulatedPitch = 15 * sin(millis() / 1000.0);
+// Function to apply simulated pitch, roll, and yaw values
+void simulateOrientationInput() {
+    // Simulate slight pitch, roll, and yaw oscillations
+    static float simulatedPitch = 0.0;
+    static float simulatedRoll = 0.0;
+    static float simulatedYaw = 0.0;
 
-    // error and correction
-    float error = (simulatedPitch - targetPitch) / 90;  // Normalize error
-    integral += error;
-    float derivative = error - previousError;
-    testCorrection = kp * error + ki * integral + kd * derivative;
-    previousError = error;
+    // pitch, roll, and yaw using sine functions
+    simulatedPitch = 10 * sin(millis() / 1000.0);
+    simulatedRoll = 5 * sin(millis() / 1200.0);
+    simulatedYaw = 8 * sin(millis() / 1400.0);
 
-    // applying thrust to correct pitch
-    thrustControl(testCorrection);
+    // simulated values to the control function
+    simulateIMUInput(simulatedPitch, simulatedRoll, simulatedYaw);
 
-    // is "balance" achieved (within tolerance)
-    if (abs(simulatedPitch - targetPitch) <= tolerance) {
-        if (!isStable) {
-            Serial.println("Balance achieved within tolerance range.");
-            isStable = true;
-        }
-    } else {
-        if (isStable) {
-            Serial.println("Out of balance.");
-            isStable = false;
-        }
-    }
+    // balance score based on pitch, roll, and yaw
+    float balanceScore = abs(simulatedPitch) + abs(simulatedRoll) + abs(simulatedYaw);
+    float tolerance = 0.5; // Define tolerance for "balanced" state
+    bool isBalanced = (abs(simulatedPitch) <= tolerance) &&
+                     (abs(simulatedRoll) <= tolerance) &&
+                     (abs(simulatedYaw) <= tolerance);
 
-    // print simulated values
+    // print out the current state and balance status
     Serial.print("Simulated Pitch: "); Serial.print(simulatedPitch);
-    Serial.print("\tCorrection: "); Serial.print(testCorrection);
-    Serial.print("\tStability: "); Serial.println(isStable ? "Stable" : "Unstable");
+    Serial.print("\tSimulated Roll: "); Serial.print(simulatedRoll);
+    Serial.print("\tSimulated Yaw: "); Serial.print(simulatedYaw);
+    Serial.print("\tBalanced: "); Serial.println(isBalanced ? "Yes" : "No");
+    Serial.print("Balance Score: "); Serial.println(balanceScore);
 
-    delay(1000)
+    delay(1000);
 }
 
 #endif
