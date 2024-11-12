@@ -4,11 +4,11 @@
 void setup() {
   setupIMU();
 
-  setupSimulation();
+  // setupSimulation();
 }
 
 void loop() {
   updateIMU();
 
-  simulateOrientationInput();
+  // simulatePitchInput();
 }
