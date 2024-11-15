@@ -4,7 +4,7 @@ const int thrusterFront = 11;
 const int thrusterBack = 12;
 
 // PID variables
-float kp = 1500;
+float kp = 2000;
 float ki = 0.1;
 float kd = 0.1;
 
@@ -32,39 +32,45 @@ void setup() {
 }
 
 unsigned long debounce_threshold = 50; // 50 ms debounce threshold
-unsigned long last_state_change_time = 0;
+unsigned long lastStateChangeTime = 0;
+bool thrusterOn;
 
 void thrustControl(float correction) {
     if (abs(roll) > 0.03) {
         unsigned long current_time = millis();
         
-        // Set initial time and fixed_correction if both thrusters are off
-        if (digitalRead(thrusterFront) == LOW && digitalRead(thrusterBack) == LOW) {
+        if (!thrusterOn) {
             previous_time = current_time;
-            fixed_correction = correction;
-        }
-
-        // Check if the correction period is ongoing
-        if (current_time - previous_time < abs(fixed_correction)) {
-            // Only change thruster state if debounce threshold is met
-            if (current_time - last_state_change_time > debounce_threshold) {
-                if (error > 0) {
-                    digitalWrite(thrusterFront, HIGH);
-                    digitalWrite(thrusterBack, LOW);
-                } else {
-                    digitalWrite(thrusterBack, HIGH);
-                    digitalWrite(thrusterFront, LOW);
-                }
-                // Update the last state change time to apply debounce
-                last_state_change_time = current_time;
-            }
-        } else {
-            // If correction period has ended, turn off both thrusters
+            fixed_correction = max(correction, 50);
             digitalWrite(thrusterFront, LOW);
             digitalWrite(thrusterBack, LOW);
         }
+
+        if (current_time - previous_time < fixed_correction) {
+            if (current_time - lastStateChangeTime > debounce_threshold) {
+                thrusterOn = true;
+                
+                if (error > 0) {
+                    digitalWrite(thrusterFront, HIGH);
+                    digitalWrite(thrusterBack, LOW);
+                } else if (error < 0) {
+                    digitalWrite(thrusterBack, HIGH);
+                    digitalWrite(thrusterFront, LOW);
+                }
+                
+                lastStateChangeTime = current_time;
+            }
+        } else {
+            digitalWrite(thrusterFront, LOW);
+            digitalWrite(thrusterBack, LOW);
+            thrusterOn = false;
+        }
+    } else {
+        digitalWrite(thrusterFront, LOW);
+        digitalWrite(thrusterBack, LOW);
     }
 }
+
 
 
 void loop() {
@@ -88,7 +94,7 @@ void loop() {
   integral += error;
   derivative = (error - previousError)/(dt);
 
-  float correction = kp*error+ ki*integral + kd*derivative;
+  float correction = abs(kp*error+ ki*integral + kd*derivative);
 
   thrustControl(correction);
   
@@ -96,6 +102,7 @@ void loop() {
   Serial.print(roll);
   Serial.print(", Correction: ");
   Serial.println(correction);
+  Serial.flush();
 
   if (Serial.available() > 0) {
     String input = Serial.readStringUntil('\n');
@@ -125,19 +132,4 @@ void loop() {
     
   }
   previousError = error;
-
-//  digitalWrite(thrusterFront, LOW);
-  
-//  digitalWrite(thrusterFront, HIGH);
-//  digitalWrite(thrusterBack, HIGH);
-//
-//  delay(10);
-//
-//  digitalWrite(thrusterFront, LOW);
-//  digitalWrite(thrusterBack, LOW);
-//
-//  delay(10);
-
-//  digitalWrite(thrusterFront, LOW);
-//  digitalWrite(thrusterBack, HIGH);
 }
