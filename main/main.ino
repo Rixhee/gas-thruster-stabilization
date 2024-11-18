@@ -1,12 +1,12 @@
 #include "imu_functions.h"
 
-const int thrusterFront = 11;
-const int thrusterBack = 12;
+const int thrusterFront = 12;
+const int thrusterBack = 11;
 
 // PID variables
-float kp = 2000;
+float kp = 100;
 float ki = 0.1;
-float kd = 0.1;
+float kd = 75;
 
 float yaw = 0;
 float pitch = 0;
@@ -20,90 +20,93 @@ float derivative = 0;
 const unsigned long dt = 100;
 
 unsigned long previous_time = 0;
-float fixed_correction;
+int fixedCycles;
 
 void setup() {
   Serial.begin(115200);
-
   setupIMU();
-  
   pinMode(thrusterFront, OUTPUT);
   pinMode(thrusterBack, OUTPUT);
 }
 
-unsigned long debounce_threshold = 50; // 50 ms debounce threshold
+bool thrusterOn = false;
+int cycleCounter = 0;
+int threshold = 0;
+
+uint8_t debounceThreshold = 50;
 unsigned long lastStateChangeTime = 0;
-bool thrusterOn;
+unsigned long previousTime = 0;
 
 void thrustControl(float correction) {
-    if (abs(roll) > 0.03) {
-        unsigned long current_time = millis();
-        
+    if (abs(roll) > 0.02) {
+      unsigned long current_time = millis();
         if (!thrusterOn) {
-            previous_time = current_time;
-            fixed_correction = max(correction, 50);
+            // Set the number of cycles the thruster should stay on based on correction
+            fixedCycles = max(int(abs(correction)), threshold); 
+            cycleCounter = 0;
             digitalWrite(thrusterFront, LOW);
             digitalWrite(thrusterBack, LOW);
+//            Serial.print("Fixed Cycles: ");
+//            Serial.println(fixedCycles);
+            thrusterOn = true; 
         }
 
-        if (current_time - previous_time < fixed_correction) {
-            if (current_time - lastStateChangeTime > debounce_threshold) {
-                thrusterOn = true;
-                
-                if (error > 0) {
-                    digitalWrite(thrusterFront, HIGH);
-                    digitalWrite(thrusterBack, LOW);
-                } else if (error < 0) {
-                    digitalWrite(thrusterBack, HIGH);
-                    digitalWrite(thrusterFront, LOW);
-                }
-                
-                lastStateChangeTime = current_time;
+        // Check if the thruster should stay on
+        if (cycleCounter < fixedCycles) {
+          if (current_time - lastStateChangeTime > debounceThreshold) {
+            if (error > 0) {
+                digitalWrite(thrusterFront, HIGH);
+                digitalWrite(thrusterBack, LOW);
+            } else if (error < 0) {
+                digitalWrite(thrusterBack, HIGH);
+                digitalWrite(thrusterFront, LOW);
             }
+            cycleCounter++; 
+            lastStateChangeTime = current_time;
+          }
         } else {
+            // Turn the thruster off after the fixed number of cycles
             digitalWrite(thrusterFront, LOW);
             digitalWrite(thrusterBack, LOW);
-            thrusterOn = false;
+            thrusterOn = false; 
         }
     } else {
+        // If roll is small, turn off thrusters
         digitalWrite(thrusterFront, LOW);
         digitalWrite(thrusterBack, LOW);
+        thrusterOn = false;
     }
+
+//    Serial.print("Cycle Counter: ");
+//    Serial.println(cycleCounter);
 }
 
-
-
 void loop() {
-
   loopIMU();
 
   float* yprValues = getYPR();
-
   yaw = yprValues[0];
   pitch = yprValues[1];
   roll = yprValues[2];
-
-//  Serial.print("Yaw: ");
-//  Serial.print(yaw);
-//  Serial.print(", Pitch: ");
-//  Serial.print(pitch);
-//  Serial.print(", Roll: ");
-//  Serial.println(roll);
   
   error = roll;
   integral += error;
-  derivative = (error - previousError)/(dt);
+  derivative = (error - previousError) / dt;
 
-  float correction = abs(kp*error+ ki*integral + kd*derivative);
-
-  thrustControl(correction);
-  
+  // Calculate correction for the PID
+  float correction = kp * error + ki * integral + kd * derivative;
   Serial.print("Roll: ");
   Serial.print(roll);
   Serial.print(", Correction: ");
   Serial.println(correction);
   Serial.flush();
 
+  // Control the thrusters
+  thrustControl(correction);
+
+  previousError = error;
+
+  // Process Serial commands for tuning parameters
   if (Serial.available() > 0) {
     String input = Serial.readStringUntil('\n');
 
@@ -111,25 +114,26 @@ void loop() {
       setupIMU();
     } else {
       int index_delimiter = input.indexOf(" ");
-    String selectedVariable = input.substring(0, index_delimiter);
-    float value = input.substring(index_delimiter).toFloat();
+      String selectedVariable = input.substring(0, index_delimiter);
+      float value = input.substring(index_delimiter).toFloat();
 
-    if (selectedVariable == "kp") {
-      kp = value;
-      Serial.print("kp: ");
-      Serial.println(kp);
-    } else if (selectedVariable == "ki") {
-      ki = value;
-      Serial.print("ki: ");
-      Serial.println(ki);
-    } else if (selectedVariable == "kd") {
-      kd = value;
-      Serial.print("kd: ");
-      Serial.println(kd);
+      if (selectedVariable == "kp") {
+        kp = value;
+        Serial.print("kp: ");
+        Serial.println(kp);
+      } else if (selectedVariable == "ki") {
+        ki = value;
+        Serial.print("ki: ");
+        Serial.println(ki);
+      } else if (selectedVariable == "kd") {
+        kd = value;
+        Serial.print("kd: ");
+        Serial.println(kd);
+      } else if (selectedVariable == "threshold") {
+        debounceThreshold = value;
+        Serial.print("threshold: ");
+        Serial.println(threshold);
       }
     }
-
-    
   }
-  previousError = error;
 }
