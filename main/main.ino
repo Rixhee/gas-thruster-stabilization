@@ -1,12 +1,12 @@
 #include "imu_functions.h"
 
-const int thrusterFront = 12;
-const int thrusterBack = 11;
+const int thrusterFront = 11;
+const int thrusterBack = 12;
 
 // PID variables
-float kp = 100;
-float ki = 0.1;
-float kd = 75;
+float kp = 150;
+float ki = 0;
+float kd = 0;
 
 float yaw = 0;
 float pitch = 0;
@@ -33,7 +33,7 @@ bool thrusterOn = false;
 int cycleCounter = 0;
 int threshold = 0;
 
-uint8_t debounceThreshold = 50;
+uint8_t debounceThreshold = 30;
 unsigned long lastStateChangeTime = 0;
 unsigned long previousTime = 0;
 
@@ -53,7 +53,7 @@ void thrustControl(float correction) {
 
         // Check if the thruster should stay on
         if (cycleCounter < fixedCycles) {
-          if (current_time - lastStateChangeTime > debounceThreshold) {
+          if (thrusterOn || current_time - lastStateChangeTime > debounceThreshold && !thrusterOn) {
             if (error > 0) {
                 digitalWrite(thrusterFront, HIGH);
                 digitalWrite(thrusterBack, LOW);
