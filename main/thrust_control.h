@@ -2,12 +2,12 @@
 #define THRUST_CONTROL_H
 
 // Constants
-const int thrusterFront = 11, thrusterBack = 12, thrusterLeft = 13, thrusterRight = 14;
+const int thrusterFront = 9, thrusterBack = 10, thrusterLeft = 11, thrusterRight = 12;
 const int PSI = 60;  // Thrust pressure in PSI
 
-int TARGET_PITCH = 30;   // Target pitch in degrees
+int TARGET_PITCH = 0;   // Target pitch in degrees
 int TARGET_ROLL = 0;  // Target roll in degrees
-int threshold = 2;  // Threshold for minimal pitch and roll adjustments
+int threshold = 0;  // Threshold for minimal pitch and roll adjustments
 
 // PID variables
 float kp = 150, ki = 0, kd = 0;
@@ -76,8 +76,13 @@ void thrustControl(float current_pitch, float current_roll) {
     right_thrust = PSI;
   }
 
+  Serial.print("pitch err  ");
+  Serial.println(pitch_error);
+  Serial.print("roll err  ");
+  Serial.println(roll_error);
+
   // Prevent opposing thrusters from firing
-  no_opps(front_thrust, back_thrust, left_thrust, right_thrust);
+//  no_opps(front/_thrust, back_thrust, left_thrust, right_thrust);
 
   // Print calculated thrust values
   Serial.print("Thrusts (Front, Back, Left, Right): ");

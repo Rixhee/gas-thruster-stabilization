@@ -13,10 +13,10 @@ void setup() {
 void loop() {
   loopIMU();
 
-  float* yprValues = getYPR();
-  float yaw = yprValues[0];
-  float pitch = yprValues[1];
-  float roll = yprValues[2];
+  float* yprValues = getYPR(); // * 60 for rough degrees
+  float yaw = yprValues[0] * 60;
+  float pitch = yprValues[1] * 60;
+  float roll = yprValues[2] * 60;
 
   Serial.println("yaw: " + String(yaw) + " pitch: " + String(pitch) + " roll: " + String(roll) + " kp: " + String(kp));
 
