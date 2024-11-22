@@ -18,6 +18,8 @@ void loop() {
   float pitch = yprValues[1];
   float roll = yprValues[2];
 
+  Serial.println("yaw: " + String(yaw) + " pitch: " + String(pitch) + " roll: " + String(roll) + " kp: " + String(kp));
+
   // Control the thrusters
   thrustControl(pitch, roll);
 
@@ -43,6 +45,14 @@ void loop() {
         kd = value;
         Serial.print("kd: ");
         Serial.println(kd);
+      } else if (selectedVariable == "tp") {
+        TARGET_PITCH = value;
+        Serial.print("target pitch: ");
+        Serial.println(TARGET_PITCH);
+      } else if (selectedVariable == "tr") {
+        TARGET_ROLL = value;
+        Serial.print("target roll: ");
+        Serial.println(TARGET_ROLL);
       } else if (selectedVariable == "threshold") {
         threshold = value;
         Serial.print("threshold: ");

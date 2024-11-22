@@ -4,7 +4,10 @@
 // Constants
 const int thrusterFront = 11, thrusterBack = 12, thrusterLeft = 13, thrusterRight = 14;
 const int PSI = 60;  // Thrust pressure in PSI
-const int threshold = 2;  // Threshold for minimal pitch and roll adjustments
+
+int TARGET_PITCH = 30;   // Target pitch in degrees
+int TARGET_ROLL = 0;  // Target roll in degrees
+int threshold = 2;  // Threshold for minimal pitch and roll adjustments
 
 // PID variables
 float kp = 150, ki = 0, kd = 0;
