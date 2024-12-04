@@ -1,28 +1,33 @@
 #ifndef THRUST_CONTROL_H
 #define THRUST_CONTROL_H
 
+#include "AdaptivePIDController.h"
+
 // Constants
-const int thrusterFront = 11, thrusterBack = 12, thrusterLeft = 13, thrusterRight = 14;
+const int thrusterFront = 9, thrusterBack = 10, thrusterLeft = 11, thrusterRight = 12;
 const int PSI = 60;  // Thrust pressure in PSI
-const int threshold = 2;  // Threshold for minimal pitch and roll adjustments
+int TARGET_PITCH = 0;   // Target pitch in degrees
+int TARGET_ROLL = 0;  // Target roll in degrees
+int threshold = 0;  // Threshold for minimal pitch and roll adjustments
 
-// PID variables
-float kp = 150, ki = 0, kd = 0;
+// Cycle counting constants
+const int MAX_CYCLES = 5;  // Maximum number of cycles a thruster can be activated
 
-// IMU variables
-float yaw = 0, pitch = 0, roll = 0;
-
-// PID error and integral variables for pitch and roll
-float previousErrorPitch = 0, previousErrorRoll = 0, integralPitch = 0, integralRoll = 0;
+// Cycle counters for each axis
+int pitchCycleCounter = 0;
+int rollCycleCounter = 0;
 
 unsigned long previous_time = 0;
 
+// Create adaptive PID controllers
+AdaptivePIDController pitchPID;
+AdaptivePIDController rollPID;
+
 // Thrust control functions
 void thrustControl(float current_pitch, float current_roll);
-float pid_control(float current_error, float &previous_error, float &integral, unsigned long dt, float kp, float ki, float kd);
 void no_opps(int &front_thrust, int &back_thrust, int &left_thrust, int &right_thrust);
 
-// No opposing thrusters function
+// No opposing thrusters function (unchanged)
 void no_opps(int &front_thrust, int &back_thrust, int &left_thrust, int &right_thrust) {
   if (front_thrust > 0 && back_thrust > 0) {
     front_thrust = back_thrust = 0;
@@ -32,50 +37,85 @@ void no_opps(int &front_thrust, int &back_thrust, int &left_thrust, int &right_t
   }
 }
 
-// PID control function
-float pid_control(float current_error, float &previous_error, float &integral, unsigned long dt, float kp, float ki, float kd) {
-  integral += current_error * dt;
-  float derivative = (current_error - previous_error) / dt;
-  previous_error = current_error;
-  return kp * current_error + ki * integral + kd * derivative;
-}
-
-// Main thrust control function
+// Main thrust control function with adaptive PID and cycle counting
 void thrustControl(float current_pitch, float current_roll) {
   int front_thrust = 0, back_thrust = 0, left_thrust = 0, right_thrust = 0;
-
+  
   // Calculate pitch and roll errors
   float pitch_error = TARGET_PITCH - current_pitch;
   float roll_error = TARGET_ROLL - current_roll;
-
-  // If both pitch and roll errors are within the threshold, no thrust needed
+  
+  // If both pitch and roll errors are within the threshold, reset cycle counters and return
   if (abs(pitch_error) < threshold && abs(roll_error) < threshold) {
     Serial.println("Pitch and Roll errors are within threshold. No thrust applied.");
+    pitchCycleCounter = 0;
+    rollCycleCounter = 0;
     return;
   }
-
-  unsigned long dt = millis() - previous_time;
-
-  // Apply PID control for pitch and roll
-  float pitch_correction = pid_control(pitch_error, previousErrorPitch, integralPitch, dt, kp, ki, kd);
-  float roll_correction = pid_control(roll_error, previousErrorRoll, integralRoll, dt, kp, ki, kd);
-
-  // Apply corrections based on errors
-  if (pitch_error > 0) {
-    front_thrust = PSI;
-  } else if (pitch_error < 0) {
-    back_thrust = PSI;
+  
+  unsigned long current_time = millis();
+  unsigned long dt = current_time - previous_time;
+  
+  // Apply Adaptive PID control for pitch and roll
+  float pitch_correction = pitchPID.compute(TARGET_PITCH, current_pitch, dt / 1000.0);
+  float roll_correction = rollPID.compute(TARGET_ROLL, current_roll, dt / 1000.0);
+  
+  // Pitch correction with cycle counting
+  if (abs(pitch_error) > threshold) {
+    if (pitch_correction > 0.15 && pitchCycleCounter < MAX_CYCLES) {
+      front_thrust = PSI;
+      pitchCycleCounter++;
+    } else if (pitch_correction < -0.15 && pitchCycleCounter < MAX_CYCLES) {
+      back_thrust = PSI;
+      pitchCycleCounter++;
+    }
+  } else {
+    // Reset pitch cycle counter when close to target
+    pitchCycleCounter = 0;
   }
-
-  if (roll_error > 0) {
-    left_thrust = PSI;
-  } else if (roll_error < 0) {
-    right_thrust = PSI;
+  
+  // Roll correction with cycle counting
+  if (abs(roll_error) > threshold) {
+    if (roll_correction > 0.15 && rollCycleCounter < MAX_CYCLES) {
+      left_thrust = PSI;
+      rollCycleCounter++;
+    } else if (roll_correction < -0.15 && rollCycleCounter < MAX_CYCLES) {
+      right_thrust = PSI;
+      rollCycleCounter++;
+    }
+  } else {
+    // Reset roll cycle counter when close to target
+    rollCycleCounter = 0;
   }
-
+  
+  // Debug logging with adaptive PID gains
+  Serial.print("Pitch PID Gains (P, I, D): ");
+  Serial.print(pitchPID.getKp());
+  Serial.print(", ");
+  Serial.print(pitchPID.getKi());
+  Serial.print(", ");
+  Serial.println(pitchPID.getKd());
+  
+  Serial.print("Roll PID Gains (P, I, D): ");
+  Serial.print(rollPID.getKp());
+  Serial.print(", ");
+  Serial.print(rollPID.getKi());
+  Serial.print(", ");
+  Serial.println(rollPID.getKd());
+  
+  Serial.print("Pitch Cycle Counter: ");
+  Serial.println(pitchCycleCounter);
+  Serial.print("Roll Cycle Counter: ");
+  Serial.println(rollCycleCounter);
+  
+  Serial.print("Pitch Error: ");
+  Serial.println(pitch_error);
+  Serial.print("Roll Error: ");
+  Serial.println(roll_error);
+  
   // Prevent opposing thrusters from firing
   no_opps(front_thrust, back_thrust, left_thrust, right_thrust);
-
+  
   // Print calculated thrust values
   Serial.print("Thrusts (Front, Back, Left, Right): ");
   Serial.print(front_thrust);
@@ -85,10 +125,10 @@ void thrustControl(float current_pitch, float current_roll) {
   Serial.print(left_thrust);
   Serial.print(", ");
   Serial.println(right_thrust);
-
-  // Update previous errors and time for the next cycle
-  previous_time = millis();
-
+  
+  // Update previous time for the next cycle
+  previous_time = current_time;
+  
   // Apply thrust values to the motors
   digitalWrite(thrusterFront, front_thrust ? HIGH : LOW);
   digitalWrite(thrusterBack, back_thrust ? HIGH : LOW);
