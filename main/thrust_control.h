@@ -61,11 +61,11 @@ void thrustControl(float current_pitch, float current_roll) {
   float roll_correction = rollPID.compute(TARGET_ROLL, current_roll, dt / 1000.0);
   
   // Pitch correction with cycle counting
-  if (abs(pitch_error) > threshold) {
-    if (pitch_correction > 0.15 && pitchCycleCounter < MAX_CYCLES) {
+  if (abs(pitch_error) > threshold && pitchCycleCounter <= MAX_CYCLES) {
+    if (pitch_correction > 0.15) {
       front_thrust = PSI;
       pitchCycleCounter++;
-    } else if (pitch_correction < -0.15 && pitchCycleCounter < MAX_CYCLES) {
+    } else if (pitch_correction < -0.15) {
       back_thrust = PSI;
       pitchCycleCounter++;
     }
@@ -75,11 +75,11 @@ void thrustControl(float current_pitch, float current_roll) {
   }
   
   // Roll correction with cycle counting
-  if (abs(roll_error) > threshold) {
-    if (roll_correction > 0.15 && rollCycleCounter < MAX_CYCLES) {
+  if (abs(roll_error) > threshold && rollCycleCounter <= MAX_CYCLES) {
+    if (roll_correction > 0.15) {
       left_thrust = PSI;
       rollCycleCounter++;
-    } else if (roll_correction < -0.15 && rollCycleCounter < MAX_CYCLES) {
+    } else if (roll_correction < -0.15) {
       right_thrust = PSI;
       rollCycleCounter++;
     }
