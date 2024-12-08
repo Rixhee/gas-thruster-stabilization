@@ -3,12 +3,17 @@
 
 #include "AdaptivePIDController.h"
 
+// 23 Should be Front
+// 16 Should be Back
+// 
+
 // Constants
-const int thrusterFront = 9, thrusterBack = 10, thrusterLeft = 11, thrusterRight = 12;
+// const int thrusterFront = 23, thrusterBack = 16, thrusterLeft = 2, thrusterRight = 5;
+const int thrusterFront = 16, thrusterBack = 23, thrusterLeft = 5, thrusterRight = 2;
 const int PSI = 60;  // Thrust pressure in PSI
 int TARGET_PITCH = 0;   // Target pitch in degrees
 int TARGET_ROLL = 0;  // Target roll in degrees
-int threshold = 0;  // Threshold for minimal pitch and roll adjustments
+int threshold = 1;  // Threshold for minimal pitch and roll adjustments
 
 // Cycle counting constants
 const int MAX_CYCLES = 5;  // Maximum number of cycles a thruster can be activated
@@ -50,6 +55,10 @@ void thrustControl(float current_pitch, float current_roll) {
     Serial.println("Pitch and Roll errors are within threshold. No thrust applied.");
     pitchCycleCounter = 0;
     rollCycleCounter = 0;
+    digitalWrite(thrusterFront, LOW);
+    digitalWrite(thrusterBack, LOW);
+    digitalWrite(thrusterLeft, LOW);
+    digitalWrite(thrusterRight, LOW);
     return;
   }
   
