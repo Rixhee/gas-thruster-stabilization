@@ -1,17 +1,14 @@
 #include "imu_functions.h"
 
-// Define thruster pins
 const int thrusterFront = 5;
 const int thrusterBack = 2;
 const int thrusterLeft = 16;
 const int thrusterRight = 23;
 
-// PID constants (shared for both axes)
-float kp = 1;
+float kp = 0.4;
 float ki = 0.01;
-float kd = 0.01;
+float kd = 0.5;
 
-// PID variables
 float roll = 0;
 float pitch = 0;
 float errorFB = 0;
@@ -24,11 +21,13 @@ float previousErrorLR = 0;
 float integralLR = 0;
 float derivativeLR = 0;
 
-// Control parameters
-float threshold = 0.1; 
+float threshold = 0.02; 
 unsigned long cycleDuration = 100;
 
-// Duty cycles and timing
+float angVelX;
+float angVelY;
+float angVelZ;
+
 unsigned long lastCycleTimeFB = 0;
 unsigned long lastCycleTimeLR = 0;
 unsigned long onTimeFB = 0;
@@ -38,6 +37,9 @@ bool thrusterState = false;
 
 float dutyCycleFB = 0;
 float dutyCycleLR = 0;
+
+unsigned long lastCounterMotionTime = 0;
+unsigned long counterMotionDuration = 10; 
 
 // Setup function
 void setup() {
@@ -49,7 +51,6 @@ void setup() {
   pinMode(thrusterRight, OUTPUT);
 }
 
-// Front-Back thruster control
 void thrustControlFrontBack(float correction) {
     unsigned long currentTime = millis();
     unsigned long elapsedTime = currentTime - lastCycleTimeFB;
@@ -65,10 +66,10 @@ void thrustControlFrontBack(float correction) {
     if (elapsedTime < onTimeFB && abs(roll) > threshold) {
         if (correction > 0) {
             digitalWrite(thrusterFront, HIGH);
-            digitalWrite(thrusterBack, LOW);
+//            digitalWrite(thrusterBack, LOW);
         } else if (correction < 0) {
             digitalWrite(thrusterBack, HIGH);
-            digitalWrite(thrusterFront, LOW);
+//            digitalWrite(thrusterFront, LOW);
         }
         thrusterState = true;
     } else {
@@ -94,16 +95,56 @@ void thrustControlLeftRight(float correction) {
     if (elapsedTime < onTimeLR && abs(pitch) > threshold) {
         if (correction > 0) {
             digitalWrite(thrusterLeft, HIGH);
-            digitalWrite(thrusterRight, LOW);
+//            digitalWrite(thrusterRight, LOW);
         } else if (correction < 0) {
             digitalWrite(thrusterRight, HIGH);
-            digitalWrite(thrusterLeft, LOW);
+//            digitalWrite(thrusterLeft, LOW);
         }
         thrusterState = true;
     } else {
         digitalWrite(thrusterLeft, LOW);
         digitalWrite(thrusterRight, LOW);
         thrusterState = false;
+    }
+}
+
+// Counter-motion correction based on gyro rates
+void applyCounterMotion(float gyroX, float gyroY) {
+    unsigned long currentTime = millis();
+    bool counterMotionApplied = false;
+
+    // Check if enough time has passed since the last counter-motion
+    if (currentTime - lastCounterMotionTime >= counterMotionDuration) {
+
+        // Apply counter-motion only if the angular velocity is reducing (indicating movement towards stabilized position)
+        if (angVelX > 40 && roll > 0.5) {
+            digitalWrite(thrusterBack, HIGH); 
+            lastCounterMotionTime = currentTime;
+            counterMotionApplied = true;
+        } else if (angVelX < -40 && roll < -0.5) {
+            digitalWrite(thrusterFront, HIGH);
+            lastCounterMotionTime = currentTime;
+            counterMotionApplied = true;
+        }
+        
+        if (angVelY > 40 && pitch > 0.5) { 
+            digitalWrite(thrusterRight, HIGH); 
+            lastCounterMotionTime = currentTime;
+            counterMotionApplied = true;
+        } else if (angVelY < -40 && pitch < -0.5) {
+            digitalWrite(thrusterLeft, HIGH);
+            lastCounterMotionTime = currentTime;
+            counterMotionApplied = true;
+        }
+    }
+
+    // Turn off counter-motion after the duration (10 ms)
+    if (counterMotionApplied) {
+        unsigned long counterMotionElapsedTime = currentTime - lastCounterMotionTime;
+        if (counterMotionElapsedTime >= counterMotionDuration) {
+            digitalWrite(thrusterBack, LOW); 
+            digitalWrite(thrusterRight, LOW); 
+        }
     }
 }
 
@@ -116,6 +157,16 @@ void loop() {
   roll = yprValues[1];
   pitch = yprValues[2];
 
+  float* angXYZ = getAngularVelocity();
+  angVelX = angXYZ[0];
+  angVelY = angXYZ[1];
+  angVelZ = angXYZ[2];
+
+//  Serial.print("AngVel X: ");
+//  Serial.print(angVelX);
+//  Serial.print("AngVel Y: ");
+//  Serial.println(angVelY);
+
   // Calculate PID error for roll (front-back thrusters)
   errorFB = roll;
   unsigned long currentTime = millis();
@@ -124,7 +175,6 @@ void loop() {
   integralFB = constrain(integralFB, 0, 0.5);
   derivativeFB = (errorFB - previousErrorFB) / dtFB;
 
-  // Calculate correction for front-back thrusters
   float correctionFrontBack = kp * errorFB + ki * integralFB + kd * derivativeFB;
 
   // Calculate PID error for pitch (left-right thrusters)
@@ -134,27 +184,27 @@ void loop() {
   integralLR = constrain(integralLR, 0, 0.5);
   derivativeLR = (errorLR - previousErrorLR) / dtLR;
 
-  // Calculate correction for left-right thrusters
   float correctionLeftRight = kp * errorLR + ki * integralLR + kd * derivativeLR;
 
-  Serial.print("Roll: ");
-  Serial.print(roll);
-  Serial.print(", Front-Back Correction: ");
+//  Serial.print("Roll: ");
+//  Serial.print(roll);
+  Serial.print("Front-Back Correction: ");
   Serial.print(correctionFrontBack);
   Serial.print(", Left-Right Correction: ");
   Serial.println(correctionLeftRight);
 
-  // Use separate control functions for front-back and left-right thrusters
   thrustControlFrontBack(correctionFrontBack);
   thrustControlLeftRight(correctionLeftRight);
 
   previousErrorFB = errorFB;
   previousErrorLR = errorLR;
 
-  Serial.print("Front-Back Duty Cycle: ");
-  Serial.println(dutyCycleFB * 100);
-  Serial.print("Left-Right Duty Cycle: ");
-  Serial.println(dutyCycleLR * 100);
+  applyCounterMotion(angVelX, angVelY);
+
+//  Serial.print("Front-Back Duty Cycle: ");
+//  Serial.println(dutyCycleFB * 100);
+//  Serial.print("Left-Right Duty Cycle: ");
+//  Serial.println(dutyCycleLR * 100);
 
   // Process Serial input for tuning parameters
   if (Serial.available() > 0) {
@@ -186,4 +236,16 @@ void loop() {
       Serial.println(cycleDuration);
     }
   }
+
+//  Serial.print("Front: ");
+//  Serial.print(digitalRead(thrusterFront) == HIGH ? "ON" : "OFF");
+//
+//  Serial.print(", Back: ");
+//  Serial.print(digitalRead(thrusterBack) == HIGH ? "ON" : "OFF");
+//
+//  Serial.print(", Left: ");
+//  Serial.print(digitalRead(thrusterLeft) == HIGH ? "ON" : "OFF");
+//
+//  Serial.print(", Right: ");
+//  Serial.println(digitalRead(thrusterRight) == HIGH ? "ON" : "OFF");
 }
