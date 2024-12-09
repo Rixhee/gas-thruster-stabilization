@@ -2,7 +2,7 @@
 
 MPU6050 mpu;
 
-#define INTERRUPT_PIN 2
+#define INTERRUPT_PIN 26
 
 bool dmpReady = false;
 uint8_t mpuIntStatus;
