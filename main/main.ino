@@ -33,20 +33,19 @@ void loop() {
       String selectedVariable = input.substring(0, index_delimiter);
       float value = input.substring(index_delimiter).toFloat();
 
-      // if (selectedVariable == "kp") {
-      //   kp = value;
-      //   Serial.print("kp: ");
-      //   Serial.println(kp);
-      // } else if (selectedVariable == "ki") {
-      //   ki = value;
-      //   Serial.print("ki: ");
-      //   Serial.println(ki);
-      // } else if (selectedVariable == "kd") {
-      //   kd = value;
-      //   Serial.print("kd: ");
-      //   Serial.println(kd);
-      // } else 
-      if (selectedVariable == "tp") {
+      if (selectedVariable == "kp") {
+        kp = value;
+        Serial.print("kp: ");
+        Serial.println(kp);
+      } else if (selectedVariable == "ki") {
+        ki = value;
+        Serial.print("ki: ");
+        Serial.println(ki);
+      } else if (selectedVariable == "kd") {
+        kd = value;
+        Serial.print("kd: ");
+        Serial.println(kd);
+      } else if (selectedVariable == "tp") {
         TARGET_PITCH = value;
         Serial.print("target pitch: ");
         Serial.println(TARGET_PITCH);
@@ -54,7 +53,7 @@ void loop() {
         TARGET_ROLL = value;
         Serial.print("target roll: ");
         Serial.println(TARGET_ROLL);
-      } else if (selectedVariable == "threshold") {
+      } else if (selectedVariable == "th") {
         threshold = value;
         Serial.print("threshold: ");
         Serial.println(threshold);

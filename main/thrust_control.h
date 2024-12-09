@@ -3,17 +3,18 @@
 
 #include "AdaptivePIDController.h"
 
-// 23 Should be Front
-// 16 Should be Back
-// 
-
 // Constants
 // const int thrusterFront = 23, thrusterBack = 16, thrusterLeft = 2, thrusterRight = 5;
 const int thrusterFront = 16, thrusterBack = 23, thrusterLeft = 5, thrusterRight = 2;
 const int PSI = 60;  // Thrust pressure in PSI
-int TARGET_PITCH = 0;   // Target pitch in degrees
-int TARGET_ROLL = 0;  // Target roll in degrees
-int threshold = 1;  // Threshold for minimal pitch and roll adjustments
+int TARGET_PITCH = 0;   // Target pitch in degrees                      (tp)
+int TARGET_ROLL = 0;  // Target roll in degrees                         (tr)
+int threshold = 0;  // Threshold for minimal pitch and roll adjustments (th)
+
+// U CAN SET THESE VALUES FOR CONSTANT
+float kp = 0;
+float ki = 0;
+float kd = 0;
 
 // Cycle counting constants
 const int MAX_CYCLES = 5;  // Maximum number of cycles a thruster can be activated
@@ -25,8 +26,8 @@ int rollCycleCounter = 0;
 unsigned long previous_time = 0;
 
 // Create adaptive PID controllers
-AdaptivePIDController pitchPID;
-AdaptivePIDController rollPID;
+AdaptivePIDController pitchPID(kp,ki,kd);
+AdaptivePIDController rollPID(kp,ki,kd);
 
 // Thrust control functions
 void thrustControl(float current_pitch, float current_roll);
@@ -71,10 +72,10 @@ void thrustControl(float current_pitch, float current_roll) {
   
   // Pitch correction with cycle counting
   if (abs(pitch_error) > threshold && pitchCycleCounter <= MAX_CYCLES) {
-    if (pitch_correction > 0.15) {
+    if (pitch_correction < 0.15) {                // This was changed from '>' to '<' in the last push
       front_thrust = PSI;
       pitchCycleCounter++;
-    } else if (pitch_correction < -0.15) {
+    } else if (pitch_correction > -0.15) {        // This was changed from '<' to '>' in the last push
       back_thrust = PSI;
       pitchCycleCounter++;
     }
@@ -85,10 +86,10 @@ void thrustControl(float current_pitch, float current_roll) {
   
   // Roll correction with cycle counting
   if (abs(roll_error) > threshold && rollCycleCounter <= MAX_CYCLES) {
-    if (roll_correction > 0.15) {
+    if (roll_correction < 0.15) {                // This was changed from '>' to '<' in the last push
       left_thrust = PSI;
       rollCycleCounter++;
-    } else if (roll_correction < -0.15) {
+    } else if (roll_correction > -0.15) {        // This was changed from '<' to '>' in the last push
       right_thrust = PSI;
       rollCycleCounter++;
     }
