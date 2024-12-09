@@ -29,48 +29,48 @@ private:
 
     // Adaptive tuning logic
     void adaptiveTuning(float error) {
-        // // Oscillation detection
-        // bool isOscillating = false;
-        // for (int i = 1; i < MAX_ERROR_HISTORY; i++) {
-        //     int prevIndex = (errorHistoryIndex - i + MAX_ERROR_HISTORY) % MAX_ERROR_HISTORY;
-        //     if (errorHistory[prevIndex] * error < 0) {
-        //         isOscillating = true;
-        //         break;
-        //     }
-        // }
+        // Oscillation detection
+        bool isOscillating = false;
+        for (int i = 1; i < MAX_ERROR_HISTORY; i++) {
+            int prevIndex = (errorHistoryIndex - i + MAX_ERROR_HISTORY) % MAX_ERROR_HISTORY;
+            if (errorHistory[prevIndex] * error < 0) {
+                isOscillating = true;
+                break;
+            }
+        }
 
-        // if (isOscillating) {
-        //     oscillationCount++;
+        if (isOscillating) {
+            oscillationCount++;
             
-        //     // If oscillating too much, reduce proportional and derivative gains
-        //     if (oscillationCount > 3) {
-        //         kp *= 0.8;  // Reduce proportional gain
-        //         kd *= 0.8;  // Reduce derivative gain
-        //         oscillationCount = 0;
-        //     }
-        // }
+            // If oscillating too much, reduce proportional and derivative gains
+            if (oscillationCount > 3) {
+                kp *= 0.8;  // Reduce proportional gain
+                kd *= 0.8;  // Reduce derivative gain
+                oscillationCount = 0;
+            }
+        }
 
-        // // Overshoot detection
-        // if (abs(error) > abs(previousError)) {
-        //     overshootCount++;
+        // Overshoot detection
+        if (abs(error) > abs(previousError)) {
+            overshootCount++;
             
-        //     // If consistent overshoot, increase derivative gain
-        //     if (overshootCount > 2) {
-        //         kd *= 1.2;  // Increase derivative gain
-        //         overshootCount = 0;
-        //     }
-        // }
+            // If consistent overshoot, increase derivative gain
+            if (overshootCount > 2) {
+                kd *= 1.2;  // Increase derivative gain
+                overshootCount = 0;
+            }
+        }
 
-        // // Anti-windup for integral term
-        // if (abs(integral) > 10) {
-        //     integral *= 0.9;
-        //     ki *= 0.9;  // Reduce integral gain
-        // }
+        // Anti-windup for integral term
+        if (abs(integral) > 10) {
+            integral *= 0.9;
+            ki *= 0.9;  // Reduce integral gain
+        }
 
-        // // Ensure gains stay within reasonable bounds
-        // kp = constrain(kp, 0.1, 5.0);
-        // ki = constrain(ki, 0.1, 2.0);
-        // kd = constrain(kd, 0.01, 3.0);
+        // Ensure gains stay within reasonable bounds
+        kp = constrain(kp, 0.1, 5.0);
+        ki = constrain(ki, 0.1, 2.0);
+        kd = constrain(kd, 0.01, 3.0);
     }
 
 public:
@@ -108,7 +108,7 @@ public:
         float output = p_term + i_term + d_term;
 
         // Adaptive tuning
-        adaptiveTuning(error);
+        // adaptiveTuning(error);
 
         // Update previous error
         previousError = error;
