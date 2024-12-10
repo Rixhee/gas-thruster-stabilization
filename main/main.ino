@@ -57,6 +57,10 @@ void loop() {
         threshold = value;
         Serial.print("threshold: ");
         Serial.println(threshold);
+      } else if (selectedVariable == "th") {
+        threshold = value;
+        Serial.print("threshold: ");
+        Serial.println(threshold);
       }
     }
   }

@@ -108,7 +108,7 @@ public:
         float output = p_term + i_term + d_term;
 
         // Adaptive tuning
-        // adaptiveTuning(error);
+        adaptiveTuning(error);
 
         // Update previous error
         previousError = error;

@@ -9,7 +9,7 @@ const int thrusterFront = 16, thrusterBack = 23, thrusterLeft = 5, thrusterRight
 const int PSI = 60;  // Thrust pressure in PSI
 int TARGET_PITCH = 0;   // Target pitch in degrees                      (tp)
 int TARGET_ROLL = 0;  // Target roll in degrees                         (tr)
-int threshold = 0;  // Threshold for minimal pitch and roll adjustments (th)
+int threshold = 1;  // Threshold for minimal pitch and roll adjustments (th)
 
 // U CAN SET THESE VALUES FOR CONSTANT
 float kp = 0;
@@ -26,8 +26,8 @@ int rollCycleCounter = 0;
 unsigned long previous_time = 0;
 
 // Create adaptive PID controllers
-AdaptivePIDController pitchPID(kp,ki,kd);
-AdaptivePIDController rollPID(kp,ki,kd);
+AdaptivePIDController pitchPID;//(kp,ki,kd);
+AdaptivePIDController rollPID;//(kp,ki,kd);
 
 // Thrust control functions
 void thrustControl(float current_pitch, float current_roll);
