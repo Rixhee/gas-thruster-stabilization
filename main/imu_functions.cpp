@@ -17,6 +17,12 @@ float angularVelocity[3] = {0.0, 0.0, 0.0};
 float previousGyro[3] = {0.0, 0.0, 0.0};
 unsigned long previousMillis = 0;
 
+// Smoothing variables
+const int NUM_SAMPLES = 10; // Number of samples for moving average
+float angularVelocityHistory[3][NUM_SAMPLES]; // Store last N samples for each axis
+int sampleIndex = 0;
+
+// Interrupt flag
 volatile bool mpuInterrupt = false;
 void dmpDataReady() { mpuInterrupt = true; }
 
@@ -80,20 +86,40 @@ void loopIMU() {
       gz / 131.0
     };
 
+    // Store the current gyro values in the history buffer for moving average
+    angularVelocityHistory[0][sampleIndex] = currentGyro[0];
+    angularVelocityHistory[1][sampleIndex] = currentGyro[1];
+    angularVelocityHistory[2][sampleIndex] = currentGyro[2];
+
+    // Increment the sample index and wrap around if it exceeds NUM_SAMPLES
+    sampleIndex = (sampleIndex + 1) % NUM_SAMPLES;
+
+    // Calculate the moving average for each axis
+    float smoothedGyro[3] = {0.0, 0.0, 0.0};
+    for (int i = 0; i < NUM_SAMPLES; i++) {
+      smoothedGyro[0] += angularVelocityHistory[0][i];
+      smoothedGyro[1] += angularVelocityHistory[1][i];
+      smoothedGyro[2] += angularVelocityHistory[2][i];
+    }
+
+    smoothedGyro[0] /= NUM_SAMPLES;
+    smoothedGyro[1] /= NUM_SAMPLES;
+    smoothedGyro[2] /= NUM_SAMPLES;
+
     // Calculate the angular velocity (change in angle over time)
     unsigned long currentMillis = millis();
     unsigned long deltaTime = currentMillis - previousMillis;
 
     if (deltaTime > 0) {
-      angularVelocity[0] = (currentGyro[0] - previousGyro[0]) / deltaTime * 1000;
-      angularVelocity[1] = (currentGyro[1] - previousGyro[1]) / deltaTime * 1000;
-      angularVelocity[2] = (currentGyro[2] - previousGyro[2]) / deltaTime * 1000;
+      angularVelocity[0] = (smoothedGyro[0] - previousGyro[0]) / deltaTime * 1000;
+      angularVelocity[1] = (smoothedGyro[1] - previousGyro[1]) / deltaTime * 1000;
+      angularVelocity[2] = (smoothedGyro[2] - previousGyro[2]) / deltaTime * 1000;
     }
 
     // Store the current gyro values for the next loop iteration
-    previousGyro[0] = currentGyro[0];
-    previousGyro[1] = currentGyro[1];
-    previousGyro[2] = currentGyro[2];
+    previousGyro[0] = smoothedGyro[0];
+    previousGyro[1] = smoothedGyro[1];
+    previousGyro[2] = smoothedGyro[2];
 
     previousMillis = currentMillis;
   }
