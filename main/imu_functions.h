@@ -8,5 +8,6 @@
 void setupIMU();
 void loopIMU();
 float* getYPR();
+float* getAngularVelocity();
 
 #endif

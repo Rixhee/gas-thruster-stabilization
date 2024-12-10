@@ -1,23 +1,29 @@
 #include "imu_functions.h"
 
-const int thrusterFront = 5;
-const int thrusterBack = 2;
+const int front = 5;
+const int back = 2;
 
-// PID variables
+// PID
 float kp = 1;
 float ki = 0.001;
 float kd = 0.01;
+float kt = 0.1;
 
 float yaw = 0;
 float pitch = 0;
 float roll = 0;
+
+float angVelX = 0;
+float angVelY = 0;
+float angVelZ = 0;
 
 float error = 0;
 float previousError = 0;
 float integral = 0;
 float derivative = 0;
 
-float rollThreshold = 0.02; 
+float threshold = 0.03;
+
 unsigned long cycleDuration = 100;
 unsigned long lastCycleTime = 0;
 unsigned long onTime = 0;
@@ -29,39 +35,63 @@ float dutyCycle = 0;
 void setup() {
   Serial.begin(115200);
   setupIMU();
-  pinMode(thrusterFront, OUTPUT);
-  pinMode(thrusterBack, OUTPUT);
+  pinMode(front, OUTPUT);
+  pinMode(back, OUTPUT);
+}
+
+float counterThreshold = 45;
+float rollThresholdMax = 0.4;
+float rollThresholdMin = 0.1;
+
+void counterControl() {
+  if (abs(roll) > rollThresholdMin && abs(roll) < rollThresholdMax && abs(angVelX) > counterThreshold) {
+    // Counter thruster activation logic
+    if (roll > 0) {
+      digitalWrite(back, HIGH);
+      digitalWrite(front, LOW);
+    } else if (roll < 0) {
+      digitalWrite(front, HIGH);
+      digitalWrite(back, LOW);
+    }
+  } else if (thrusterState == false) {
+    // Turn off both thrusters if neither condition is met
+    digitalWrite(front, LOW);
+    digitalWrite(back, LOW);
+  }
 }
 
 void thrustControl(float correction) {
     unsigned long currentTime = millis();
     unsigned long elapsedTime = currentTime - lastCycleTime;
 
-    // Check if a new cycle should start
     if (elapsedTime >= cycleDuration) {
         lastCycleTime = currentTime;
 
+        // Calculate duty cycle based on correction
+        if (correction > 0.6) {
+           dutyCycle = 1; 
+        }
         dutyCycle = constrain(abs(correction), 0.0, 1.0); 
         onTime = dutyCycle * cycleDuration;
     }
 
-    // Control thrusters ON/OFF based on elapsed time and roll threshold
-    if (elapsedTime < onTime && abs(roll) > rollThreshold) {
+    if (elapsedTime < onTime && abs(roll) > threshold) {
+        // Apply primary thruster correction based on error
         if (error > 0) {
-            digitalWrite(thrusterFront, HIGH);
-            digitalWrite(thrusterBack, LOW);
+            digitalWrite(front, HIGH);
+            digitalWrite(back, LOW);
         } else if (error < 0) {
-            digitalWrite(thrusterBack, HIGH);
-            digitalWrite(thrusterFront, LOW);
+            digitalWrite(back, HIGH);
+            digitalWrite(front, LOW);
         }
         thrusterState = true;
     } else {
-        digitalWrite(thrusterFront, LOW);
-        digitalWrite(thrusterBack, LOW);
+        // Reset thrusters after onTime
+        digitalWrite(front, LOW);
+        digitalWrite(back, LOW);
         thrusterState = false;
     }
 }
-
 
 void loop() {
   loopIMU();
@@ -70,6 +100,16 @@ void loop() {
   yaw = yprValues[0];
   roll = yprValues[1];
   pitch = yprValues[2];
+
+  float* angVelXYZ = getAngularVelocity();
+  angVelY = angVelXYZ[0];
+  angVelX = angVelXYZ[1];
+  angVelZ = angVelXYZ[2];
+
+  Serial.print("AngVel X: ");
+  Serial.print(angVelX);
+  Serial.print(", AngVel Y: ");
+  Serial.println(angVelY);
 
   // Calculate PID error
   error = roll;
@@ -83,15 +123,18 @@ void loop() {
 
   Serial.print("Roll: ");
   Serial.print(roll);
+  Serial.print(", Pitch: ");
+  Serial.print(pitch);
   Serial.print(", Correction: ");
   Serial.println(correction);
 
-  thrustControl(correction);
+//  thrustControl(correction);
+  counterControl();
 
   previousError = error;
 
-  Serial.print("Duty Cycle: ");
-  Serial.println(dutyCycle * 100);
+//  Serial.print("Duty Cycle: ");
+//  Serial.println(dutyCycle * 100);
 
   // Process Serial input for tuning parameters
   if (Serial.available() > 0) {
@@ -121,6 +164,18 @@ void loop() {
       cycleDuration = value;
       Serial.print("Updated Cycle Duration: ");
       Serial.println(cycleDuration);
+    } else if (variable == "ct") {
+      counterThreshold = value;
+      Serial.print("Updated Cycle Duration: ");
+      Serial.println(counterThreshold);
+    } else if (variable = "rtmax") {
+      rollThresholdMax = value;
+      Serial.print("Updated Roll Threshold");
+      Serial.println(rollThresholdMax);
+    } else if (variable = "rtmin") {
+      rollThresholdMin = value;
+      Serial.print("Updated Roll Threshold");
+      Serial.println(rollThresholdMin);
     }
-  }
+  } 
 }

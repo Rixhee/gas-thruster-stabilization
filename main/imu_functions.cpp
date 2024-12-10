@@ -12,6 +12,11 @@ float ypr[3];
 Quaternion q;
 VectorFloat gravity;
 
+// Angular velocity variables
+float angularVelocity[3] = {0.0, 0.0, 0.0};
+float previousGyro[3] = {0.0, 0.0, 0.0};
+unsigned long previousMillis = 0;
+
 volatile bool mpuInterrupt = false;
 void dmpDataReady() { mpuInterrupt = true; }
 
@@ -62,8 +67,42 @@ void loopIMU() {
   if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
     mpu.dmpGetQuaternion(&q, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
-    mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+    mpu.dmpGetYawPitchRoll(ypr, &q, &gravity); 
+    
+    // Get current gyroscope readings (angular velocity)
+    int16_t gx, gy, gz;
+    mpu.getRotation(&gx, &gy, &gz);
+
+    // Convert the raw gyro data to degrees per second (or radians if needed)
+    float currentGyro[3] = {
+      gx / 131.0, 
+      gy / 131.0,
+      gz / 131.0
+    };
+
+    // Calculate the angular velocity (change in angle over time)
+    unsigned long currentMillis = millis();
+    unsigned long deltaTime = currentMillis - previousMillis;
+
+    if (deltaTime > 0) {
+      angularVelocity[0] = (currentGyro[0] - previousGyro[0]) / deltaTime * 1000;
+      angularVelocity[1] = (currentGyro[1] - previousGyro[1]) / deltaTime * 1000;
+      angularVelocity[2] = (currentGyro[2] - previousGyro[2]) / deltaTime * 1000;
+    }
+
+    // Store the current gyro values for the next loop iteration
+    previousGyro[0] = currentGyro[0];
+    previousGyro[1] = currentGyro[1];
+    previousGyro[2] = currentGyro[2];
+
+    previousMillis = currentMillis;
   }
 }
 
-float* getYPR() { return ypr; }
+float* getYPR() {
+  return ypr;
+}
+
+float* getAngularVelocity() {
+  return angularVelocity;
+}
