@@ -75,7 +75,7 @@ private:
 
 public:
     // Constructor with initial gains
-    AdaptivePIDController(float initial_kp = 2.0, float initial_ki = 0.5, float initial_kd = 0.1) 
+    AdaptivePIDController(float initial_kp = .1, float initial_ki = 0.2, float initial_kd = 0.1) 
         : kp(initial_kp), ki(initial_ki), kd(initial_kd), 
           previousError(0), integral(0), 
           errorHistoryIndex(0), 
