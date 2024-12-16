@@ -5,116 +5,47 @@
 
 const int thrusterFront = 16, thrusterBack = 23, thrusterLeft = 5, thrusterRight = 2;
 float kp = 1, ki = .01, kd = .1;
-float outputMin = 0, outputMax = 100;
 
 // Target orientation
 float TARGET_PITCH = 0;
 float TARGET_ROLL = 0;
 float threshold = 5;
-
-// Added variables to keep track of previous thrust
-float previousThrust = 0; // Last thrust applied
-int previousThrusterIndex = -1; // Index of the last thruster that applied thrust
-float holdThrust = 0;
-int holdThrusterIndex = -1;
+float minOnTime = 100;
+float maxOnTime = 1000;
 
 class Thruster {
 private:
     int pin;
     float previousError = 0;
     PIDController pidController;
-    const float minVel = 0;
-    const float velThresh = 20;
-    
-    unsigned long PERIOD = 100; // Total period in milliseconds
-    unsigned long lastUpdateTime = 0; // Last time PWM state was updated
-    int pwmState = 0;  // Current state of the PWM output
-
-    int pwm(int dutyCyclePercent) {
-        // Constrain the input to be between 0 and 100
-        dutyCyclePercent = constrain(dutyCyclePercent, 0, 100);
-        
-        // Calculate the elapsed time since the last update
-        unsigned long currentMillis = millis();
-        unsigned long elapsedTime = currentMillis - lastUpdateTime;
-        
-        // Calculate the ON time and OFF time in milliseconds
-        unsigned long onTime = (PERIOD * dutyCyclePercent) / 100;
-        unsigned long offTime = PERIOD - onTime;
-
-        // Update the PWM output state based on elapsed time
-        if (elapsedTime >= onTime + offTime) {
-            lastUpdateTime = currentMillis; // Reset last update time
-            pwmState = 0; // Reset to OFF state
-        } else if (elapsedTime < onTime) {
-            pwmState = 1; // Set to ON state
-        } else {
-            pwmState = 0; // Set to OFF state
-        }
-
-        return pwmState; // Return the current PWM state (0 or 1)
-    }
+    const float minVel = 10;
 
 public:
-    Thruster(int pin, float KP, float KI, float KD) 
-    : pin(pin), pidController(KP, KI, KD) {
+    Thruster(int pin) 
+    : pin(pin), pidController() {
         pinMode(pin, OUTPUT);
     }
 
     int getPin() const { return pin; }
 
-    bool holdThruster(float error, float currentAngle, float currentVelocity) {
-      return false;
-        // Check if we need to hold thrust
-        if (holdThrusterIndex == getPin() && holdThrust > 0 
-          && abs(error) <= threshold && currentVelocity <= velThresh) {
-            Serial.println("Holding thrust: " + String(holdThrust) + " on thruster " + String(holdThrusterIndex));
-            digitalWrite(holdThrusterIndex, HIGH);
-            delay( holdThrust );
-            return true;
-        }
-        return false;
-    }
-
-    bool counterThrust(float error, float currentAngle, float currentVelocity) {
-        // Check if a transition is necessary
-        if (previousThrusterIndex != getPin() && previousThrusterIndex != -1 && previousThrust > 0 
-        && (abs(error) > threshold || currentVelocity > velThresh) && (error * previousError) > 0) {
-            float dampingFactor = constrain(abs(error) / 50, 0, 1);
-            Serial.println("Countering previous thrust of: " + String(previousThrust) + " from thruster " + String(previousThrusterIndex) + " dampening: "+String(dampingFactor));
-            digitalWrite(getPin(), HIGH);
-            digitalWrite(previousThrusterIndex, LOW);
-            delay( min(500.0, max(0.0, (previousThrust * dampingFactor * 1.5) )) );
-            digitalWrite(getPin(), LOW);
-            previousThrust = 0; // Reset previous thrust after counter
-            return true;
-        }
-        return false;
-    }
-
     int thrust(float setpoint, float currentAngle, float currentVelocity, bool positive) {
         float error = abs(setpoint) - abs(currentAngle);
-        // Hold previous thrust if applicable  // Counter previous thrust if applicable
-        if (holdThruster(error, currentAngle, currentVelocity) || counterThrust(error, currentAngle, currentVelocity)) {
-          return 0;
-        }
-        // Calculate thrust using PID
-        float output = abs(pidController.calculate(setpoint, currentAngle) * 5);
-        if (currentVelocity > 30) {
-            output = output * abs(currentVelocity / 100);
-        }
-        output = constrain(output,0,100);
+        
+        // Calculate thrust using PID     (abs(error)*5) - (abs(currentVelocity)*2.5);//
+        float output = (abs(error)*5) - (abs(currentVelocity)*2.5);//abs(pidController.calculate(setpoint, currentAngle, kp, ki, kd) * 10);
+        // if (currentVelocity > 30) {
+        //     output = output * abs(currentVelocity / 100);
+        // }
+        // output = constrain(output, 0, 100);
 
-        Serial.print("ERROR: "+String(error)+" Thrust output: " + String(output) + " ----- ");
+        Serial.print("ERROR: " + String(error) + " Thrust output: " + String(output) + " ----- ");
 
-        // Apply thrust if conditions are met && abs(currentVelocity) < minVel
-        if (abs(error) > threshold && (positive && setpoint <= 0 || !positive && setpoint >= 0)) {
+        // Apply thrust if conditions are met
+        if (abs(error) > 5 && abs(currentVelocity) < minVel 
+        && (positive && setpoint <= 0 || !positive && setpoint >= 0) 
+        && (positive && currentVelocity < .1 || !positive && currentVelocity > -.1)) {
             Serial.println("Thrusting: " + String(output));
-            previousThrust = output; // Record current thrust to counter on next call
-            previousThrusterIndex = getPin(); // Record index of the current thruster
-            holdThrust = output; 
-            holdThrusterIndex = getPin(); 
-            return pwm(output); // Send PWM signal
+            return (output); // Send PWM signal
         } else {
             Serial.println("No thrust");
             return 0; // No thrust if conditions are not met
@@ -124,63 +55,109 @@ public:
 
 class Seesaw {
 private:
+    // Thruster control parameters
+    unsigned long currentOnTime = 0; // Current on time for the active thruster
+    unsigned long lastThrustStartTime = 0; // Time when the last thrust started
+
     Thruster thruster1;
     Thruster thruster2;
-    bool switchy = false;
+    float previousThrust = 0;
+    int previousThrusterPin = -1;
+    bool isThrusterActive = false;
+    int activeThrusterPin = -1;
+
+    void updateThrusterState(float thrust, int thrusterPin) {
+        unsigned long currentMillis = millis();
+        
+        // // Calculate on time based on thrust (scaled to 100-1000ms)
+        currentOnTime = constrain(thrust * 10, minOnTime, maxOnTime);
+
+        // if (thrust * 10 >= minOnTime) {
+        //     currentOnTime = min(thrust * 10, maxOnTime);
+        // } else { // If thrust is too low, don't activate the thruster
+        //     currentOnTime = 0;
+        // } 
+
+        // If no thruster is active, activate the current thruster
+        if (!isThrusterActive) {
+            digitalWrite(thrusterPin, HIGH);
+            isThrusterActive = true;
+            activeThrusterPin = thrusterPin;
+            lastThrustStartTime = currentMillis;
+            previousThrusterPin = thrusterPin;
+            previousThrust = thrust;
+        }
+        // If a different thruster is currently active
+        else if (activeThrusterPin != thrusterPin) {
+            // Check if minimum on time has passed
+            if (currentMillis - lastThrustStartTime >= minOnTime) {
+                // Turn off current thruster
+                digitalWrite(activeThrusterPin, LOW);
+                
+                // Activate new thruster
+                digitalWrite(thrusterPin, HIGH);
+                activeThrusterPin = thrusterPin;
+                lastThrustStartTime = currentMillis;
+                previousThrusterPin = thrusterPin;
+                previousThrust = thrust;
+            }
+        }
+        // If the same thruster is active, reset the timer if needed
+        else {
+            lastThrustStartTime = currentMillis;
+        }
+    }
+
+    void checkAndDeactivateThruster() {
+        unsigned long currentMillis = millis();
+        
+        // Check if current thruster has exceeded its on time
+        if (isThrusterActive && 
+            (currentMillis - lastThrustStartTime >= currentOnTime)) {
+            digitalWrite(activeThrusterPin, LOW);
+            isThrusterActive = false;
+            activeThrusterPin = -1;
+            previousThrust = 0;
+            previousThrusterPin = -1;
+        }
+    }
 
 public:
-    Seesaw(int pin1, int pin2, float KP, float KI, float KD)
-        : thruster1(pin1, KP, KI, KD), thruster2(pin2, KP, KI, KD) {}
+    // Constructor with optional parameters for min and max on times
+    Seesaw(int pin1, int pin2)
+        : thruster1(pin1), thruster2(pin2) {}
 
     void balance(float setpoint, float currentAngle, float currentVelocity) {
-        bool thrust1 = thruster1.thrust(setpoint, currentAngle, currentVelocity, false) > 0;
-        bool thrust2 = thruster2.thrust(setpoint, currentAngle, currentVelocity, true) > 0;
-        Serial.println(String(thrust1)+" i---i "+String(thrust2));
-        if (thrust1 && thrust2) {
-          if (switchy) {
-            digitalWrite(thruster1.getPin(), HIGH);
-            digitalWrite(thruster2.getPin(), LOW);
-          } else {
-            digitalWrite(thruster1.getPin(), LOW);
-            digitalWrite(thruster2.getPin(), HIGH);
-          } 
-          switchy = !switchy;
-        } else if (thrust1) {
-            digitalWrite(thruster1.getPin(), HIGH);
-            digitalWrite(thruster2.getPin(), LOW);
-        } else if (thrust2) {
-           digitalWrite(thruster1.getPin(), LOW);
-           digitalWrite(thruster2.getPin(), HIGH);
-        } else {
-            digitalWrite(thruster1.getPin(), LOW);
-            digitalWrite(thruster2.getPin(), LOW);
+        // // First check if we need to counter previous thrust
+        // if (counterThrust(setpoint, currentAngle, currentVelocity)) {
+        //     return;
+        // }
+
+        // Check and deactivate thruster if it has been on too long
+        checkAndDeactivateThruster();
+
+        // Calculate thrust for each thruster
+        float thrust1 = thruster1.thrust(setpoint, currentAngle, currentVelocity, false);
+        float thrust2 = thruster2.thrust(setpoint, currentAngle, currentVelocity, true);
+        
+        Serial.println(String(thrust1) + " i---i " + String(thrust2));
+        
+        // Activate appropriate thruster based on thrust
+        if (thrust1 > 0) {
+            updateThrusterState(thrust1, thruster1.getPin());
         }
-
-        // float thrust1 = thruster1.thrust(setpoint, currentAngle, currentVelocity);
-        // float thrust2 = thruster2.thrust(-setpoint, -currentAngle, -currentVelocity);
-        // float thrust = 0;
-        //  if (thrust1 > 0) {
-        //   digitalWrite(thruster1.getPin(), HIGH);
-        //   digitalWrite(thruster2.getPin(), LOW);
-        //   thrust = thrust1;
-        // }
-        // if (thrust2 > 0) {
-        //   digitalWrite(thruster1.getPin(), LOW);
-        //   digitalWrite(thruster2.getPin(), HIGH);
-        //   thrust = thrust2;
-        // }
-        // delay(thrust);
-        // digitalWrite(thruster1.getPin(), LOW);
-        // digitalWrite(thruster2.getPin(), LOW);
-
+        if (thrust2 > 0) {
+            updateThrusterState(thrust2, thruster2.getPin());
+        }
     }
+
 };
 
 // Single thruster configuration
 // Thruster thrusterR(thrusterRight);
 // Thruster thrusterL(thrusterLeft);
 
-static Seesaw rollControl(thrusterRight, thrusterLeft, kp, ki, kd);
+static Seesaw rollControl(thrusterRight, thrusterLeft);
 
 // Main control function for testing
 void thrustControl(float currentAngle, float currentVelocity) {
@@ -196,3 +173,31 @@ void thrustControl(float currentAngle, float currentVelocity) {
 //     digitalwrite(high)
 
 #endif
+
+
+
+// bool counterThrust(float setpoint, float currentAngle, float currentVelocity) {
+//         float error = abs(setpoint) - abs(currentAngle);
+//         if (previousThrusterPin != -1 && previousThrust > 0 
+//             && (abs(error) > threshold || currentVelocity > 20)) {
+            
+//             float dampingFactor = constrain(abs(error) / 50, 0, 1);
+//             Serial.println("Countering previous thrust of: " + String(previousThrust) + 
+//                            " from thruster pin " + String(previousThrusterPin) + 
+//                            " dampening: " + String(dampingFactor));
+            
+//             int counterPin = (previousThrusterPin == thruster1.getPin()) ? 
+//                              thruster2.getPin() : thruster1.getPin();
+            
+//             digitalWrite(counterPin, HIGH);
+//             digitalWrite(previousThrusterPin, LOW);
+            
+//             delay(min(500.0, max(0.0, (previousThrust * dampingFactor * 1.5))));
+            
+//             digitalWrite(counterPin, LOW);
+//             previousThrust = 0;
+//             previousThrusterPin = -1;
+//             return true;
+//         }
+//         return false;
+//     }

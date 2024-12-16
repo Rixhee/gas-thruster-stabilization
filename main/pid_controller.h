@@ -1,9 +1,8 @@
-#ifndef ADAPTIVE_PID_CONTROLLER_H
-#define ADAPTIVE_PID_CONTROLLER_H
+#ifndef PID_CONTROLLER_H
+#define PID_CONTROLLER_H
 
 class PIDController {
 private:
-    float Kp, Ki, Kd;
     float integral, previousError;
     unsigned long lastTime;
 
@@ -14,7 +13,7 @@ public:
         lastTime = millis(); // Initialize the last time
     }
 
-    float calculate(float setpoint, float currentAngle, float KP, float KI, float KD) {
+    float calculate(float setpoint, float currentAngle, float Kp, float Ki, float Kd) {
         unsigned long currentTime = millis();
         float dt = (currentTime - lastTime) / 1000.0; // Convert ms to seconds
         float error = setpoint - currentAngle;
@@ -41,7 +40,7 @@ public:
     }
 };
 
-#endif // ADAPTIVE_PID_CONTROLLER_H
+#endif // PID_CONTROLLER_H
 
 
 
