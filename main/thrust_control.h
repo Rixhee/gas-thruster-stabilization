@@ -4,7 +4,7 @@
 #include "pid_controller.h"
 
 const int thrusterFront = 23, thrusterBack = 16, thrusterLeft = 2, thrusterRight = 5;
-float kp = 1, ki = .01, kd = .1;
+float kp = 1, ki = .001, kd = .01;
 
 // Target orientation
 float TARGET_PITCH = 0;
@@ -13,8 +13,8 @@ float threshold = 5;
 float minVelocity = 10;
 float minOnTime = 100;
 float maxOnTime = 1000;
-float counterAngle = 2;
-float counterVelocity = 5;
+float counterAngle = 5;
+float counterVelocity = 10;
 
 class Thruster {
 private:
@@ -79,7 +79,7 @@ private:
     void performCounterThrust(float error, float currentVelocity) {
         if (previousThrusterPin == -1 || previousThrust == 0) return;
 
-        float dampingFactor = constrain(abs(error) / 50, 0, 1);
+        float dampingFactor = constrain(abs(currentVelocity) / 50, 0, 1);
         
         // Determine counter pin
         counterThrusterPin = (previousThrusterPin == thruster1.getPin()) ? 
