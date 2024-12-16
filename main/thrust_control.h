@@ -15,6 +15,7 @@ float minOnTime = 100;
 float maxOnTime = 1000;
 float counterAngle = 5;
 float counterVelocity = 10;
+double dampFact = 1.5;
 
 class Thruster {
 private:
@@ -86,7 +87,7 @@ private:
                               thruster2.getPin() : thruster1.getPin();
         
         // Calculate counter thrust duration based on previous thrust
-        counterThrustDuration = min(500.0, max(0.0, (previousThrust * dampingFactor * 1.5)));
+        counterThrustDuration = min(500.0, max(0.0, (previousThrust * dampingFactor * dampFact)));
         
         // Activate counter thruster
         digitalWrite(counterThrusterPin, HIGH);

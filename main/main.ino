@@ -75,6 +75,10 @@ void loop() {
         counterVelocity = value;
         Serial.print("counter velocity: ");
         Serial.println(counterVelocity);
+      } else if (selectedVariable == "df") {
+        dampFact = value;
+        Serial.print("damp fact: ");
+        Serial.println(dampFact);
       }
     }
   }
