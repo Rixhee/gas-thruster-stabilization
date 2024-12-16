@@ -3,7 +3,7 @@
 
 #include "pid_controller.h"
 
-const int thrusterFront = 16, thrusterBack = 23, thrusterLeft = 2, thrusterRight = 5;
+const int thrusterFront = 23, thrusterBack = 16, thrusterLeft = 2, thrusterRight = 5;
 float kp = 1, ki = .01, kd = .1;
 
 // Target orientation
@@ -50,6 +50,7 @@ public:
             Serial.println("Thrusting: " + String(output));
             return (output); // Send PWM signal
         } else {
+            // pidController.reset();
             Serial.println("No thrust");
             return 0; // No thrust if conditions are not met
         }
@@ -90,6 +91,10 @@ private:
         // Activate counter thruster
         digitalWrite(counterThrusterPin, HIGH);
         digitalWrite(previousThrusterPin, LOW);
+
+        // float previousThrust = 0;
+        // int previousThrusterPin = -1;
+        // isThrusterActive = false;
         
         // Mark counter thrust as active
         isCounterThrustActive = true;
@@ -111,6 +116,7 @@ private:
             counterThrusterPin = -1;
             previousThrust = 0;
             previousThrusterPin = -1;
+            isThrusterActive = false;
         }
     }
 

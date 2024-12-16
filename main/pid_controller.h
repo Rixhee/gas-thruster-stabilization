@@ -8,9 +8,13 @@ private:
 
 public:
     PIDController() {
-        integral = 0;
-        previousError = 0;
-        lastTime = millis(); // Initialize the last time
+        reset();
+    }
+
+    void reset() {
+      integral = 0;
+      previousError = 0;
+      lastTime = millis(); // Initialize the last time
     }
 
     float calculate(float setpoint, float currentAngle, float Kp, float Ki, float Kd) {
