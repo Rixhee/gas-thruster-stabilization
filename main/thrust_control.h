@@ -14,7 +14,7 @@ float minVelocity = 10;
 float minOnTime = 100;
 float maxOnTime = 1000;
 float counterAngle = 2;
-float counterVelocity = 10;
+float counterVelocity = 5;
 
 class Thruster {
 private:
@@ -32,6 +32,7 @@ public:
 
     int thrust(float setpoint, float currentAngle, float currentVelocity, bool positive) {
         float error = abs(setpoint) - abs(currentAngle);
+        Serial.print("SETPOINT: " + String(setpoint) + " CURR ANGLE: " + String(currentAngle) + " ----- ");
         
         // Calculate thrust using PID     (abs(error)*5) - (abs(currentVelocity)*2.5);//
         float output = abs(pidController.calculate(setpoint, currentAngle, kp, ki, kd))*10;
@@ -42,10 +43,10 @@ public:
 
         Serial.print("ERROR: " + String(error) + " Thrust output: " + String(output) + " ----- ");
 
-        // Apply thrust if conditions are met
-        if (abs(error) > threshold && abs(currentVelocity) < minVelocity 
-        && (positive && setpoint < currentAngle || !positive && setpoint > currentAngle) 
-        && (positive && currentVelocity < .1 || !positive && currentVelocity > -.1)) {
+        // Apply thrust if conditions are met // && abs(currentVelocity) < minVelocity 
+        if (abs(error) > threshold && (positive && setpoint < currentAngle || !positive && setpoint > currentAngle) 
+        // (positive && currentVelocity < .1 || !positive && currentVelocity > -.1)
+        ) {
             Serial.println("Thrusting: " + String(output));
             return (output); // Send PWM signal
         } else {
@@ -183,8 +184,8 @@ public:
 
         // Perform counter thrust if needed
         if (previousThrusterPin != -1 && previousThrust > 0 && 
-            (abs(currentAngle) > counterAngle && abs(currentVelocity) > counterVelocity)) {
-            performCounterThrust(currentAngle, currentVelocity);
+            (abs(error) > counterAngle && abs(currentVelocity) > counterVelocity)) {
+            performCounterThrust(abs(error), currentVelocity);
             return;
         }
 
