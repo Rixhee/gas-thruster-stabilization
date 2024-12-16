@@ -27,7 +27,7 @@ void loop() {
   Serial.println("velY: " + String(angVelZ) + " velY: " + String(angVelY) + " velX: " + String(angVelX));
 
   // Control the thrusters
-  thrustControl(roll, angVelX);
+  thrustControl(pitch, angVelY, roll, angVelX);
 
   // Process Serial commands for tuning parameters
   if (Serial.available() > 0) {
@@ -64,9 +64,9 @@ void loop() {
         Serial.print("threshold: ");
         Serial.println(threshold);
       } else if (selectedVariable == "mv") {
-        minVel = value;
+        minVelocity = value;
         Serial.print("min velocity: ");
-        Serial.println(minVel);
+        Serial.println(minVelocity);
       } else if (selectedVariable == "ca") {
         counterAngle = value;
         Serial.print("counter angle: ");

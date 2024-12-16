@@ -10,7 +10,7 @@ float kp = 1, ki = .01, kd = .1;
 float TARGET_PITCH = 0;
 float TARGET_ROLL = 0;
 float threshold = 5;
-float minVel = 10;
+float minVelocity = 10;
 float minOnTime = 100;
 float maxOnTime = 1000;
 float counterAngle = 2;
@@ -43,7 +43,7 @@ public:
         Serial.print("ERROR: " + String(error) + " Thrust output: " + String(output) + " ----- ");
 
         // Apply thrust if conditions are met
-        if (abs(error) > 5 && abs(currentVelocity) < minVel 
+        if (abs(error) > threshold && abs(currentVelocity) < minVelocity 
         && (positive && setpoint < currentAngle || !positive && setpoint > currentAngle) 
         && (positive && currentVelocity < .1 || !positive && currentVelocity > -.1)) {
             Serial.println("Thrusting: " + String(output));
@@ -183,7 +183,7 @@ public:
 
         // Perform counter thrust if needed
         if (previousThrusterPin != -1 && previousThrust > 0 && 
-            (abs(currentAngle) > 5 || abs(currentVelocity) > 20)) {
+            (abs(currentAngle) > counterAngle && abs(currentVelocity) > counterVelocity)) {
             performCounterThrust(currentAngle, currentVelocity);
             return;
         }
@@ -209,13 +209,13 @@ public:
 // Thruster thrusterR(thrusterRight);
 // Thruster thrusterL(thrusterLeft);
 
-// static Seesaw pitchControl(thrusterFront, thrusterBack);
+static Seesaw pitchControl(thrusterFront, thrusterBack);
 static Seesaw rollControl(thrusterRight, thrusterLeft);
 
 // Main control function for testing
-void thrustControl(float currentAngle, float currentVelocity) {
-    // pitchControl.balance(TARGET_PITCH, currentAngle, currentVelocity);
-    rollControl.balance(TARGET_ROLL, currentAngle, currentVelocity);
+void thrustControl(float pitch, float pitchVel, float roll, float rollVel) {
+    pitchControl.balance(TARGET_PITCH, pitch, pitchVel);
+    rollControl.balance(TARGET_ROLL, roll, rollVel);
 }
 
 // class thruster(angle,vel,setpoint)
