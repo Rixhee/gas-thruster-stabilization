@@ -19,14 +19,15 @@ void loop() {
   float pitch = yprValues[2] * 60;
 
   float* angVelXYZ = getAngularVelocity();
-  float angVelY = angVelXYZ[0] * 60;
-  float angVelX = angVelXYZ[1] * 60;
-  float angVelZ = angVelXYZ[2] * 60;
+  float angVelY = angVelXYZ[0];
+  float angVelX = angVelXYZ[1];
+  float angVelZ = angVelXYZ[2];
 
   Serial.println("yaw: " + String(yaw) + " pitch: " + String(pitch) + " roll: " + String(roll));
+  Serial.println("velY: " + String(angVelZ) + " velY: " + String(angVelY) + " velX: " + String(angVelX));
 
   // Control the thrusters
-  thrustControl(pitch, roll, angVelX, angVelY, angVelZ);
+  thrustControl(roll, angVelX);
 
   // Process Serial commands for tuning parameters
   if (Serial.available() > 0) {
