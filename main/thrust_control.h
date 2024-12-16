@@ -3,22 +3,24 @@
 
 #include "pid_controller.h"
 
-const int thrusterFront = 16, thrusterBack = 23, thrusterLeft = 5, thrusterRight = 2;
+const int thrusterFront = 16, thrusterBack = 23, thrusterLeft = 2, thrusterRight = 5;
 float kp = 1, ki = .01, kd = .1;
 
 // Target orientation
 float TARGET_PITCH = 0;
 float TARGET_ROLL = 0;
 float threshold = 5;
+float minVel = 10;
 float minOnTime = 100;
 float maxOnTime = 1000;
+float counterAngle = 2;
+float counterVelocity = 10;
 
 class Thruster {
 private:
     int pin;
     float previousError = 0;
     PIDController pidController;
-    const float minVel = 10;
 
 public:
     Thruster(int pin) 
@@ -32,7 +34,7 @@ public:
         float error = abs(setpoint) - abs(currentAngle);
         
         // Calculate thrust using PID     (abs(error)*5) - (abs(currentVelocity)*2.5);//
-        float output = (abs(error)*5) - (abs(currentVelocity)*2.5);//abs(pidController.calculate(setpoint, currentAngle, kp, ki, kd) * 10);
+        float output = abs(pidController.calculate(setpoint, currentAngle, kp, ki, kd))*10;
         // if (currentVelocity > 30) {
         //     output = output * abs(currentVelocity / 100);
         // }
@@ -42,7 +44,7 @@ public:
 
         // Apply thrust if conditions are met
         if (abs(error) > 5 && abs(currentVelocity) < minVel 
-        && (positive && setpoint <= 0 || !positive && setpoint >= 0) 
+        && (positive && setpoint < currentAngle || !positive && setpoint > currentAngle) 
         && (positive && currentVelocity < .1 || !positive && currentVelocity > -.1)) {
             Serial.println("Thrusting: " + String(output));
             return (output); // Send PWM signal
@@ -65,6 +67,51 @@ private:
     int previousThrusterPin = -1;
     bool isThrusterActive = false;
     int activeThrusterPin = -1;
+
+    // Counter thrust tracking
+    bool isCounterThrustActive = false;
+    unsigned long counterThrustStartTime = 0;
+    unsigned long counterThrustDuration = 0;
+    int counterThrusterPin = -1;
+
+    void performCounterThrust(float error, float currentVelocity) {
+        if (previousThrusterPin == -1 || previousThrust == 0) return;
+
+        float dampingFactor = constrain(abs(error) / 50, 0, 1);
+        
+        // Determine counter pin
+        counterThrusterPin = (previousThrusterPin == thruster1.getPin()) ? 
+                              thruster2.getPin() : thruster1.getPin();
+        
+        // Calculate counter thrust duration based on previous thrust
+        counterThrustDuration = min(500.0, max(0.0, (previousThrust * dampingFactor * 1.5)));
+        
+        // Activate counter thruster
+        digitalWrite(counterThrusterPin, HIGH);
+        digitalWrite(previousThrusterPin, LOW);
+        
+        // Mark counter thrust as active
+        isCounterThrustActive = true;
+        counterThrustStartTime = millis();
+        
+        Serial.println("Countering previous thrust of: " + String(previousThrust) + 
+                       " from thruster pin " + String(previousThrusterPin) + 
+                       " dampening: " + String(dampingFactor));
+    }
+
+    void checkAndEndCounterThrust() {
+        unsigned long currentMillis = millis();
+        
+        // Check if counter thrust duration has elapsed
+        if (isCounterThrustActive && 
+            (currentMillis - counterThrustStartTime >= counterThrustDuration)) {
+            digitalWrite(counterThrusterPin, LOW);
+            isCounterThrustActive = false;
+            counterThrusterPin = -1;
+            previousThrust = 0;
+            previousThrusterPin = -1;
+        }
+    }
 
     void updateThrusterState(float thrust, int thrusterPin) {
         unsigned long currentMillis = millis();
@@ -128,17 +175,22 @@ public:
         : thruster1(pin1), thruster2(pin2) {}
 
     void balance(float setpoint, float currentAngle, float currentVelocity) {
-        // // First check if we need to counter previous thrust
-        // if (counterThrust(setpoint, currentAngle, currentVelocity)) {
-        //     return;
-        // }
-
+        float error = abs(setpoint) - abs(currentAngle);
+        // Check and end counter thrust if duration has elapsed
+        checkAndEndCounterThrust();
         // Check and deactivate thruster if it has been on too long
         checkAndDeactivateThruster();
 
+        // Perform counter thrust if needed
+        if (previousThrusterPin != -1 && previousThrust > 0 && 
+            (abs(currentAngle) > 5 || abs(currentVelocity) > 20)) {
+            performCounterThrust(currentAngle, currentVelocity);
+            return;
+        }
+
         // Calculate thrust for each thruster
-        float thrust1 = thruster1.thrust(setpoint, currentAngle, currentVelocity, false);
-        float thrust2 = thruster2.thrust(setpoint, currentAngle, currentVelocity, true);
+        float thrust1 = thruster1.thrust(setpoint, currentAngle, currentVelocity, true);
+        float thrust2 = thruster2.thrust(setpoint, currentAngle, currentVelocity, false);
         
         Serial.println(String(thrust1) + " i---i " + String(thrust2));
         
@@ -157,10 +209,12 @@ public:
 // Thruster thrusterR(thrusterRight);
 // Thruster thrusterL(thrusterLeft);
 
+// static Seesaw pitchControl(thrusterFront, thrusterBack);
 static Seesaw rollControl(thrusterRight, thrusterLeft);
 
 // Main control function for testing
 void thrustControl(float currentAngle, float currentVelocity) {
+    // pitchControl.balance(TARGET_PITCH, currentAngle, currentVelocity);
     rollControl.balance(TARGET_ROLL, currentAngle, currentVelocity);
 }
 

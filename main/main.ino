@@ -63,6 +63,18 @@ void loop() {
         threshold = value;
         Serial.print("threshold: ");
         Serial.println(threshold);
+      } else if (selectedVariable == "mv") {
+        minVel = value;
+        Serial.print("min velocity: ");
+        Serial.println(minVel);
+      } else if (selectedVariable == "ca") {
+        counterAngle = value;
+        Serial.print("counter angle: ");
+        Serial.println(counterAngle);
+      } else if (selectedVariable == "cv") {
+        counterVelocity = value;
+        Serial.print("counter velocity: ");
+        Serial.println(counterVelocity);
       }
     }
   }
