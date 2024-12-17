@@ -4,7 +4,7 @@
 #include "pid_controller.h"
 
 const int thrusterFront = 16, thrusterBack = 23, thrusterLeft = 2, thrusterRight = 5;
-float kp = 1, ki = .001, kd = .01;
+float kp = 1, ki = .01, kd = .01;
 
 // Target orientation
 float TARGET_PITCH = 0;
