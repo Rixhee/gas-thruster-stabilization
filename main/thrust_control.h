@@ -9,12 +9,12 @@ float kp = 1, ki = .01, kd = .01;
 // Target orientation
 float TARGET_PITCH = 0;
 float TARGET_ROLL = 0;
-float threshold = 2;
+float threshold = 0;
 float minOnTime = 100;
 float maxOnTime = 1000;
-float counterAngle = 1;
+float counterAngle = 0;
 float counterVelocity = 30;
-double dampFact = 1.6;
+double dampFact = 1.8;
 
 float minVelocity = 10;
 
