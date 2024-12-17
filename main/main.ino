@@ -79,6 +79,14 @@ void loop() {
         dampFact = value;
         Serial.print("damp fact: ");
         Serial.println(dampFact);
+      } else if (selectedVariable == "maxt") {
+        maxOnTime = value;
+        Serial.print("max on time: ");
+        Serial.println(maxOnTime);
+      } else if (selectedVariable == "mint") {
+        minOnTime = value;
+        Serial.print("min on time: ");
+        Serial.println(minOnTime);
       }
     }
   }
