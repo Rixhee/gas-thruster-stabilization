@@ -23,8 +23,8 @@ void loop() {
   float angVelX = angVelXYZ[1];
   float angVelZ = angVelXYZ[2];
 
-  Serial.println("yaw: " + String(yaw) + " pitch: " + String(pitch) + " roll: " + String(roll));
-  Serial.println("velY: " + String(angVelZ) + " velY: " + String(angVelY) + " velX: " + String(angVelX));
+  // Serial.println("yaw: " + String(yaw) + " pitch: " + String(pitch) + " roll: " + String(roll));
+  // Serial.println("velY: " + String(angVelZ) + " velY: " + String(angVelY) + " velX: " + String(angVelX));
 
   // Control the thrusters
   thrustControl(pitch, angVelY, roll, angVelX);

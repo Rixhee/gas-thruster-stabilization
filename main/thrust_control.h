@@ -3,19 +3,20 @@
 
 #include "pid_controller.h"
 
-const int thrusterFront = 23, thrusterBack = 16, thrusterLeft = 2, thrusterRight = 5;
+const int thrusterFront = 16, thrusterBack = 23, thrusterLeft = 2, thrusterRight = 5;
 float kp = 1, ki = .001, kd = .01;
 
 // Target orientation
 float TARGET_PITCH = 0;
 float TARGET_ROLL = 0;
-float threshold = 5;
-float minVelocity = 10;
+float threshold = 2;
 float minOnTime = 100;
 float maxOnTime = 1000;
-float counterAngle = 5;
-float counterVelocity = 10;
-double dampFact = 1.5;
+float counterAngle = 1;
+float counterVelocity = 30;
+double dampFact = 1.6;
+
+float minVelocity = 10;
 
 class Thruster {
 private:
@@ -33,7 +34,7 @@ public:
 
     int thrust(float setpoint, float currentAngle, float currentVelocity, bool positive) {
         float error = abs(setpoint) - abs(currentAngle);
-        Serial.print("SETPOINT: " + String(setpoint) + " CURR ANGLE: " + String(currentAngle) + " ----- ");
+        // Serial.print("SETPOINT: " + String(setpoint) + " CURR ANGLE: " + String(currentAngle) + " ----- ");
         
         // Calculate thrust using PID     (abs(error)*5) - (abs(currentVelocity)*2.5);//
         float output = abs(pidController.calculate(setpoint, currentAngle, kp, ki, kd))*10;
@@ -42,17 +43,18 @@ public:
         // }
         // output = constrain(output, 0, 100);
 
-        Serial.print("ERROR: " + String(error) + " Thrust output: " + String(output) + " ----- ");
+        // Serial.print("ERROR: " + String(error) + " Thrust output: " + String(output) + " ----- ");
 
         // Apply thrust if conditions are met // && abs(currentVelocity) < minVelocity 
         if (abs(error) > threshold && (positive && setpoint < currentAngle || !positive && setpoint > currentAngle) 
         // (positive && currentVelocity < .1 || !positive && currentVelocity > -.1)
         ) {
-            Serial.println("Thrusting: " + String(output));
+            // Serial.println("THRSUTING PIN: " + String(getPin()));
+            // Serial.println("Thrusting: " + String(output));
             return (output); // Send PWM signal
         } else {
             // pidController.reset();
-            Serial.println("No thrust");
+            // Serial.println("No thrust");
             return 0; // No thrust if conditions are not met
         }
     }
@@ -86,8 +88,9 @@ private:
         counterThrusterPin = (previousThrusterPin == thruster1.getPin()) ? 
                               thruster2.getPin() : thruster1.getPin();
         
+        float counterTime = millis() - lastThrustStartTime;
         // Calculate counter thrust duration based on previous thrust
-        counterThrustDuration = min(500.0, max(0.0, (previousThrust * dampingFactor * dampFact)));
+        counterThrustDuration = min(500.0, max(0.0, (abs(counterTime) * dampFact)));
         
         // Activate counter thruster
         digitalWrite(counterThrusterPin, HIGH);
@@ -101,9 +104,9 @@ private:
         isCounterThrustActive = true;
         counterThrustStartTime = millis();
         
-        Serial.println("Countering previous thrust of: " + String(previousThrust) + 
-                       " from thruster pin " + String(previousThrusterPin) + 
-                       " dampening: " + String(dampingFactor));
+        // Serial.println("Countering previous thrust of: " + String(previousThrust) + 
+        //                " from thruster pin " + String(previousThrusterPin) + 
+        //                " dampening: " + String(dampingFactor));
     }
 
     void checkAndEndCounterThrust() {
@@ -200,7 +203,7 @@ public:
         float thrust1 = thruster1.thrust(setpoint, currentAngle, currentVelocity, true);
         float thrust2 = thruster2.thrust(setpoint, currentAngle, currentVelocity, false);
         
-        Serial.println(String(thrust1) + " i---i " + String(thrust2));
+        // Serial.println(String(thrust1) + " i---i " + String(thrust2));
         
         // Activate appropriate thruster based on thrust
         if (thrust1 > 0) {
@@ -220,10 +223,27 @@ public:
 static Seesaw pitchControl(thrusterFront, thrusterBack);
 static Seesaw rollControl(thrusterRight, thrusterLeft);
 
+float startTime = 0.0;
+float prevPitch = 0.0;
+float prevRoll = 0.0;
+
 // Main control function for testing
 void thrustControl(float pitch, float pitchVel, float roll, float rollVel) {
+    float currentTime = millis() / 1000.0;
+    float deltaTime = currentTime - startTime;
+    if (deltaTime <= 0) deltaTime = 1e-6;
+    
+    pitchVel = (pitch - prevPitch) / deltaTime;
+    rollVel = (roll - prevRoll) / deltaTime;
+
+    // Call balance control
     pitchControl.balance(TARGET_PITCH, pitch, pitchVel);
     rollControl.balance(TARGET_ROLL, roll, rollVel);
+
+    // Update previous values
+    startTime = currentTime;
+    prevPitch = pitch;
+    prevRoll = roll;
 }
 
 // class thruster(angle,vel,setpoint)
